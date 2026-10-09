@@ -1,0 +1,53 @@
+# dependencies & build output
+node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# env & secrets — never commit any of these
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+id_rsa*
+id_ed25519*
+secrets/
+credentials/
+*.seed
+seed-phrase*
+mnemonic*
+
+# local scan store (lives outside the tree by default; belt-and-braces)
+.data/
+data/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# platform
+.vercel/
+.netlify/
+next-env.d.ts
+
+# local QA artifacts
+qa/shots/
+qa/*.png
+qa/_*.mjs
+

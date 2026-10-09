@@ -1,0 +1,450 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Dependency Zero — landing design system
+   Light theme only. Warm bone + ink + white + restrained signal lime.
+   ========================================================================== */
+
+@theme {
+  /* Surfaces */
+  --color-bone: #f1efe8;
+  --color-surface: #faf9f5;
+  --color-elevated: #ffffff;
+
+  /* Ink */
+  --color-ink: #171816;
+  --color-ink-soft: #3a3b37;
+  --color-muted: #74766f;
+  --color-faint: #a3a49c;
+
+  /* Small uppercase mono labels. Kept a step deeper than `--color-muted` so
+     10-12px technical text clears WCAG AA (>= 4.5:1) on the bone surface. */
+  --color-label: #62645d;
+
+  /* Deep signal for lime *text* on light surfaces; the bright lime stays for
+     bars, dots and fills where it never carries copy. */
+  --color-lime-ink: #556b0a;
+
+  /* Lines */
+  --color-line: #d8d5cc;
+  --color-line-soft: #e6e3da;
+
+  /* Signal */
+  --color-lime: #d7ff3f;
+  --color-lime-deep: #b9de1c;
+  --color-safe: #21875a;
+  --color-warn: #b87918;
+  --color-blocked: #d94a3d;
+  --color-clay: #9e4630;
+
+  /* Dark content section */
+  --color-void: #121212;
+  --color-void-soft: #1a1a1a;
+  --color-void-line: #33332f;
+
+  /* Typography */
+  --font-sans: var(--font-instrument-sans), "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", ui-serif, Georgia, serif;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Layout — 1360px shell with a 40px gutter yields a 1280px content column
+     at a 1440px viewport, matching the reference composition. */
+  --container-page: 1360px;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+
+  ::selection {
+    background-color: var(--color-lime);
+    color: var(--color-ink);
+  }
+
+  /* Keyboard-visible focus everywhere */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .on-dark :focus-visible {
+    outline-color: var(--color-lime);
+  }
+
+  /* Never allow a stray wide child to create a horizontal scrollbar */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure {
+    overflow-wrap: break-word;
+  }
+}
+
+@layer components {
+  /* ---- Layout ---------------------------------------------------------- */
+  .page-shell {
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding-inline: 20px;
+  }
+  @media (min-width: 768px) {
+    .page-shell {
+      padding-inline: 32px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .page-shell {
+      padding-inline: 40px;
+    }
+  }
+
+  /* ---- Editorial serif headlines ---------------------------------------- */
+  .serif-display {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 0.95;
+  }
+
+  /* ---- Technical mono --------------------------------------------------- */
+  .mono-label {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .mono-body {
+    font-family: var(--font-mono);
+    letter-spacing: -0.012em;
+  }
+
+  /* ---- Section eyebrow -------------------------------------------------- */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: var(--color-label);
+  }
+  .eyebrow::before {
+    content: "//";
+    color: var(--color-line);
+    letter-spacing: 0.06em;
+  }
+  .on-dark .eyebrow {
+    color: #9b9b92;
+  }
+  .on-dark .eyebrow::before {
+    color: #5e5e57;
+  }
+
+  /* Thin technical border used by the hero callout tags + descriptors. */
+  .rule-edge {
+    background-color: #c3bfb2;
+  }
+  .rule-dark {
+    background-color: #3d3d38;
+  }
+
+  /* ---- Media wrappers (flat, no glow, no glass) ------------------------ */
+  /* The supplied hero video ships on a flat neutral-grey field. Lifting that
+     field to white and multiplying onto the bone page removes the plate
+     without touching the artwork itself. Only used where the asset needs it —
+     the globe and platform PNGs already carry real alpha. */
+  .flat-art {
+    display: block;
+    mix-blend-mode: multiply;
+    filter: contrast(1.18) brightness(1.09);
+  }
+
+  /* ---- Reveal on enter -------------------------------------------------- */
+  .reveal {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+    transition:
+      opacity 0.75s var(--ease-out-expo),
+      transform 0.75s var(--ease-out-expo);
+    will-change: opacity, transform;
+  }
+  .reveal[data-visible="true"] {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* ---- Marquee --------------------------------------------------------- */
+  .marquee-track {
+    animation: dz-marquee 52s linear infinite;
+  }
+  .marquee:hover .marquee-track,
+  .marquee:focus-within .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* ---- Micro float ----------------------------------------------------- */
+  .float-slow {
+    animation: dz-float 11s ease-in-out infinite;
+  }
+  .float-slower {
+    animation: dz-float 14s ease-in-out infinite;
+  }
+
+  /* ---- Scan sweep (How it works · step 01) ---------------------------- */
+  .dz-scan-line {
+    animation: dz-scan 3.6s var(--ease-out-expo) infinite;
+  }
+
+  /* ---- Consensus pulse (step 02) --------------------------------------- */
+  .dz-node {
+    animation: dz-node 3.2s ease-in-out infinite;
+  }
+
+  /* ---- Trust layer resolve (step 03) ----------------------------------- */
+  .dz-signal {
+    animation: dz-signal 3.4s var(--ease-out-expo) infinite;
+  }
+  .dz-approve {
+    animation: dz-approve 3.4s var(--ease-out-expo) infinite;
+  }
+}
+
+@keyframes dz-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes dz-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -5px, 0);
+  }
+}
+
+@keyframes dz-scan {
+  0% {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  74% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(114px);
+    opacity: 0;
+  }
+}
+
+@keyframes dz-node {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes dz-signal {
+  0% {
+    transform: translateX(-26px);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  74% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(34px);
+    opacity: 0;
+  }
+}
+
+@keyframes dz-approve {
+  0%,
+  55% {
+    opacity: 0.2;
+  }
+  78%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   Dashboard (/app, /scan, /network) — appended, scoped, and additive.
+   Nothing in this block affects the landing page.
+   ========================================================================== */
+
+@layer components {
+  .dz-shell {
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    min-height: 100dvh;
+  }
+
+  /* Sidebar: slightly lighter than the canvas, separated by one hairline. */
+  .dz-sidebar {
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-line-soft);
+  }
+
+  .dz-card {
+    background-color: #ffffff;
+    border: 1px solid var(--color-line-soft);
+    border-radius: 10px;
+  }
+
+  /* Alert card variant for blocked / negative metrics. */
+  .dz-card-alert {
+    background-color: #fbf0ee;
+    border-color: #efd9d4;
+  }
+
+  .dz-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 7px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-ink-soft);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .dz-nav-link:hover {
+    background-color: #f0eee4;
+    color: var(--color-ink);
+  }
+  .dz-nav-link[data-active="true"] {
+    background-color: #eaf6c4;
+    color: var(--color-ink);
+    box-shadow: inset 2px 0 0 var(--color-lime-deep);
+  }
+
+  .dz-overline {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    /* --color-muted only reaches 4.0:1 on white, which fails WCAG AA at this
+       size. --color-label is the same family, one step deeper. */
+    color: var(--color-label);
+  }
+
+  /* Segmented range control. */
+  .dz-segment {
+    border: 1px solid var(--color-line-soft);
+    border-radius: 8px;
+    background-color: #ffffff;
+    padding: 3px;
+    display: inline-flex;
+    gap: 2px;
+  }
+  .dz-segment button {
+    border-radius: 6px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-label);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .dz-segment button:hover {
+    color: var(--color-ink);
+  }
+  .dz-segment button[data-active="true"] {
+    background-color: var(--color-ink);
+    color: var(--color-surface);
+  }
+
+  .dz-row {
+    border-bottom: 1px solid var(--color-line-soft);
+  }
+  .dz-row:last-child {
+    border-bottom: 0;
+  }
+
+  .dz-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+  .dz-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .dz-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--color-line);
+    border-radius: 999px;
+  }
+  .dz-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ==========================================================================
+   Reduced motion — everything resolves to a calm, static end state.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .marquee-track {
+    animation: none !important;
+    transform: none !important;
+  }
+  /* With the loop stopped the row is no longer clipped mid-item, so let the
+     reader pan it instead. */
+  .marquee {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
