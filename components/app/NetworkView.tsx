@@ -8,10 +8,11 @@ import { CopyValue } from "@/components/app/CopyValue";
 import { EmptyState } from "@/components/app/EmptyState";
 import { NetworkHowItWorks } from "@/components/app/NetworkHowItWorks";
 import { KvRow, Panel } from "@/components/app/Panels";
+import { AttestationSignature } from "@/components/app/AttestationSignature";
 import { SegmentedPanel, SegmentedTabs } from "@/components/app/SegmentedTabs";
 import { TimeAgo } from "@/components/app/TimeAgo";
 import { explorerTxUrl } from "@/lib/config";
-import { activeNodes, type NetworkData } from "@/lib/network";
+import { activeNodes, type NetworkData } from "@/lib/network-types";
 
 type Tab = "overview" | "scanners" | "attestations" | "registry";
 
@@ -215,7 +216,8 @@ function AttestationsList({ data }: { data: NetworkData }) {
                 {a.packageName}
               </span>
               <span className="mono-body block text-[11.5px] text-label">
-                {a.version} · {a.signature.slice(0, 4)}…{a.signature.slice(-4)}
+                {a.version} · 
+                <AttestationSignature signature={a.signature} className="mono-body inline text-[11.5px] text-label" />
               </span>
             </span>
             <TimeAgo iso={a.createdAt} className="mono-body shrink-0 text-[11.5px] text-label" />
@@ -250,25 +252,44 @@ function AttestationDetails({ data }: { data: NetworkData }) {
     <Panel title="Attestation Details">
       <dl>
         <KvRow label="Transaction" mono>
-          <CopyValue value={a.signature} display={`${a.signature.slice(0, 4)}…${a.signature.slice(-4)}`} label="Copy signature" />
+          {a.signature ? (
+                      <CopyValue
+                        value={a.signature}
+                        display={`${a.signature.slice(0, 4)}…${a.signature.slice(-4)}`}
+                        label="Copy signature"
+                      />
+                    ) : (
+                      <span className="text-label">Not anchored</span>
+                    )}
         </KvRow>
         <KvRow label="Package" mono>
           {a.packageName}@{a.version}
+        </KvRow>
+        <KvRow label="Mechanism">
+          <span className="text-[11.5px] leading-[1.5]">{a.mechanism}</span>
+        </KvRow>
+        <KvRow label="Commitment" mono>
+          {a.commitmentHash.slice(0, 12)}…
+        </KvRow>
+        <KvRow label="Slot" mono>
+          {a.slot ?? "—"}
         </KvRow>
         <KvRow label="Verdict">{a.verdict.toUpperCase()}</KvRow>
         <KvRow label="Timestamp">
           <TimeAgo iso={a.createdAt} className="mono-body" />
         </KvRow>
       </dl>
-      <a
-        href={explorerTxUrl(a.signature)}
-        target="_blank"
-        rel="noreferrer noopener"
-        className="dz-btn-ghost mt-3 w-full"
-      >
-        View on Solana Explorer
-        <ArrowUpRight aria-hidden="true" strokeWidth={1.8} className="size-3.5" />
-      </a>
+{a.signature ? (
+        <a
+          href={explorerTxUrl(a.signature)}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="dz-btn-ghost mt-3 w-full"
+        >
+          View on Solana Explorer
+          <ArrowUpRight aria-hidden="true" strokeWidth={1.8} className="size-3.5" />
+        </a>
+      ) : null}
     </Panel>
   );
 }

@@ -17,7 +17,7 @@ import {
 import { HttpError, safeFetch } from "./http.ts";
 import { evaluatePolicy } from "./policy.ts";
 import { resolvePackage, TARBALL_MAX_BYTES, TARBALL_TIMEOUT_MS, verifyIntegrity } from "./registry.ts";
-import { readTarball, TarballError } from "./tarball.ts";
+import { readTarball, TarballError, type TarballContents } from "./tarball.ts";
 import {
   POLICY_VERSION,
   SCANNER_VERSION,
@@ -37,6 +37,13 @@ export interface ScanOutcome {
   resolution?: ScanResolution;
   /** Machine-readable failure. Present when ok === false. */
   error?: { code: string; message: string };
+  /**
+   * The already-inspected archive, handed to the attestation stage so the
+   * package is downloaded exactly once per scan.
+   */
+  contents?: TarballContents;
+  integrityVerified?: boolean;
+  integrityNote?: string | null;
 }
 
 function dep<T>(impl: T | undefined, fallback: T): T {
@@ -158,5 +165,5 @@ export async function runScan(requested: string, deps: ScanDeps = {}): Promise<S
     incompleteChecks,
   };
 
-  return { ok: true, resolution };
+  return { ok: true, resolution, contents, integrityVerified: integrity.ok, integrityNote: integrity.reason ?? null };
 }

@@ -11,7 +11,7 @@ import { CodeEvidence, KeyThreats } from "@/components/app/ReportVisuals";
 import { ReportTabs } from "@/components/app/ReportTabs";
 import { TimeAgo } from "@/components/app/TimeAgo";
 import { explorerTxUrl } from "@/lib/config";
-import { getScan } from "@/lib/store";
+import { getAttestation, getScan } from "@/lib/store";
 import type { ScanStatus } from "@/lib/types";
 import { toneForStatus } from "@/lib/verdict-tone";
 
@@ -76,12 +76,24 @@ export default async function ScanDetailPage({
   const result = scan.resolution ?? null;
   const isLegacy = !scan.phase && !result;
 
-  // Consensus is a single-scanner deployment, so votes stay 0 until multi-node
-  // voting exists. Never inflated to suggest decentralisation we do not have.
-  const votes = scan.votes;
-  const blockVotes = result && result.verdict === "block" ? 1 : 0;
-  const reviewVotes = result && result.verdict === "review" ? 1 : 0;
-  const allowVotes = result && result.verdict === "allow" ? 1 : 0;
+  /**
+   * Real consensus, when this scan produced one.
+   *
+   * These votes come from the three locally operated analytical modules, each
+   * signed with its own Ed25519 key and verified against the scanner registry.
+   * They are NOT third-party operators: one machine holds all three keys, so
+   * this is internal consistency and tamper-evidence, not decentralisation.
+   * Legacy scans carry no attestation and correctly show no votes at all.
+   */
+  const stored = await getAttestation(scan.id);
+  const consensus = stored?.consensus ?? null;
+  const votes = consensus ? consensus.votes.length : 0;
+  const countVote = (v: "block" | "review" | "allow") =>
+    consensus ? consensus.votes.filter((x) => x.verdict === v).length : 0;
+  const blockVotes = countVote("block");
+  const reviewVotes = countVote("review");
+  const allowVotes = countVote("allow");
+  const attestation = stored?.attestation ?? null;
 
   const riskScore = result ? result.riskScore : null;
 
@@ -285,11 +297,51 @@ export default async function ScanDetailPage({
                   ))}
                 </ul>
               </div>
-              {votes === 0 ? (
+              {consensus ? (
+                <div className="mt-3 border-t border-line-soft pt-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="dz-overline">Quorum</span>
+                    <span className="mono-body text-[11px] text-ink">
+                      {consensus.quorumMet}/{consensus.quorumRequired}
+                    </span>
+                    <span className="dz-overline">Result</span>
+                    <span className="mono-body text-[11px] uppercase text-ink">
+                      {consensus.result}
+                    </span>
+                    <span className="dz-overline">Policy</span>
+                    <span className="mono-body text-[11px] text-label">
+                      {consensus.policyVersion}
+                    </span>
+                  </div>
+                  <p className="mono-body mt-2 text-[11px] leading-[1.6] text-label">
+                    {consensus.rationale}
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1">
+                    {consensus.votes.map((v) => (
+                      <li
+                        key={v.publicKeyHex}
+                        className="mono-body flex items-baseline gap-2 text-[10.5px] text-label"
+                      >
+                        <span className="uppercase text-ink">{v.verdict}</span>
+                        <span className="truncate">{v.role}</span>
+                        <span className="ml-auto shrink-0 text-faint">
+                          {v.publicKeyHex.slice(0, 12)}…
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10.5px] leading-[1.55] text-faint">
+                    Three analytical modules run on one machine under one operator.
+                    Their signatures prove internal consistency and tamper-evidence,
+                    not independent verification or decentralisation.
+                  </p>
+                </div>
+              ) : (
                 <p className="mono-body mt-3 text-[11px] text-label">
-                  No scanner node has voted on this scan.
+                  No signed scanner votes exist for this scan. This record predates
+                  attestation, so no consensus is claimed. Rescan to produce one.
                 </p>
-              ) : null}
+              )}
             </Panel>
           </div>
 
@@ -299,44 +351,71 @@ export default async function ScanDetailPage({
 
             <Panel title="On-chain Attestation" icon={<AttestationIcon />}>
               <dl>
-                <KvRow label="Network">Solana Devnet</KvRow>
-                <KvRow label="Transaction" mono>
-                  {scan.attestationSignature ? (
-                    <a
-                      href={explorerTxUrl(scan.attestationSignature)}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="underline underline-offset-4 hover:text-[#155534]"
-                    >
-                      {scan.attestationSignature.slice(0, 4)}…{scan.attestationSignature.slice(-4)}
-                    </a>
+                <KvRow label="Network">
+                  {attestation ? attestation.cluster : "Solana Devnet"}
+                </KvRow>
+                <KvRow label="Mechanism">
+                  {attestation ? (
+                    <span className="text-[11.5px] leading-[1.5]">{attestation.mechanismLabel}</span>
                   ) : (
                     "—"
                   )}
                 </KvRow>
-                <KvRow label="Block" mono>
-                  {scan.attestationSignature ? "—" : "—"}
-                </KvRow>
-                <KvRow label="Timestamp">
-                  <TimeAgo iso={scan.createdAt} className="mono-body" />
-                </KvRow>
-                <KvRow label="Status">
-                  {scan.attestationSignature ? (
-                    <span className="text-[#155534]">Attested</span>
+                <KvRow label="Transaction" mono>
+                  {attestation?.transactionSignature ? (
+                    <a
+                      href={attestation.explorerUrl ?? explorerTxUrl(attestation.transactionSignature)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline underline-offset-4 hover:text-[#155534]"
+                    >
+                      {attestation.transactionSignature.slice(0, 4)}…
+                      {attestation.transactionSignature.slice(-4)}
+                    </a>
                   ) : (
-                    <span className="text-[#8A2C23]">Not yet attested on Solana Devnet</span>
+                    <span className="text-label">Not anchored</span>
                   )}
                 </KvRow>
+                <KvRow label="Slot" mono>
+                  {attestation?.slot ?? "—"}
+                </KvRow>
+                <KvRow label="Commitment" mono>
+                  {attestation?.commitmentHash ? (
+                    <CopyValue
+                      value={attestation.commitmentHash}
+                      display={`${attestation.commitmentHash.slice(0, 12)}…`}
+                      label="Copy commitment hash"
+                    />
+                  ) : (
+                    <span className="text-label">—</span>
+                  )}
+                </KvRow>
+                <KvRow label="Status">
+                  <AttestationStatusLabel attestation={attestation} />
+                </KvRow>
               </dl>
-              {scan.attestationSignature ? (
+              {attestation?.error ? (
+                <p className="mono-body mt-3 text-[11px] leading-[1.6] text-[#6B440B]">
+                  {attestation.error}
+                </p>
+              ) : null}
+              {attestation?.confirmed ? (
                 <a
-                  href={explorerTxUrl(scan.attestationSignature)}
+                  href={attestation.explorerUrl ?? explorerTxUrl(attestation.transactionSignature ?? "")}
                   target="_blank"
                   rel="noreferrer noopener"
                   className="dz-btn-ghost mt-3 w-full"
                 >
                   View on Explorer
                   <span aria-hidden="true">↗</span>
+                </a>
+              ) : null}
+              {stored ? (
+                <a
+                  href={`/api/attestations/${scan.id}/bundle`}
+                  className="dz-btn-ghost mt-2 w-full"
+                >
+                  Export proof bundle
                 </a>
               ) : null}
             </Panel>
@@ -460,6 +539,34 @@ export default async function ScanDetailPage({
 }
 
 /* Small inline icons so the panel headings match the reference exactly. */
+/**
+ * Honest attestation status.
+ *
+ * Says exactly what the stored record says. A recorded but unconfirmed
+ * transaction is never rendered as attested, and a missing transaction is
+ * never rendered as pending success.
+ */
+function AttestationStatusLabel({
+  attestation,
+}: {
+  attestation: {
+    status: string;
+    confirmed: boolean;
+    transactionSignature: string | null;
+  } | null;
+}) {
+  if (!attestation) {
+    return <span className="text-label">Not attested — rescan to create a proof</span>;
+  }
+  if (attestation.confirmed && attestation.transactionSignature) {
+    return <span className="text-[#155534]">Confirmed on Solana Devnet</span>;
+  }
+  if (attestation.status === "failed") {
+    return <span className="text-[#8A2C23]">Failed — not confirmed</span>;
+  }
+  return <span className="text-[#6B440B]">Not confirmed on Solana Devnet</span>;
+}
+
 function ConsensusIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-[17px] text-ink" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -8,9 +8,11 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "d0": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON cli/d0.ts",
+    "d0-verify": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON cli/d0-verify.ts",
     "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.ts"
   },
   "dependencies": {
+    "@solana/web3.js": "^1.99.0",
     "lucide-react": "^1.52.0",
     "next": "^16.4.0",
     "react": "^19.3.0",

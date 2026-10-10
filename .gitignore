@@ -54,3 +54,5 @@ qa/*.png
 qa/_*.mjs
 qa/_*.ts
 
+# Exported proof bundles and scratch attestations: real scan data, not source.
+qa/bundles/

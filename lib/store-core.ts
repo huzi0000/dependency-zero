@@ -4,6 +4,9 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { DATA_DIR } from "./config.ts";
 import type { FirewallEvent, ScanResolution } from "./scanner/types.ts";
+import type { ProofBundle } from "./attest/bundle.ts";
+import type { AttestationRecord } from "./attest/solana.ts";
+import type { ConsensusResult } from "./attest/consensus.ts";
 import type { ScannerNode, ScanRecord } from "./types.ts";
 
 /**
@@ -23,9 +26,33 @@ interface Database {
   nodes: ScannerNode[];
   /** Firewall enforcement trail. Absent in older store files. */
   firewall?: FirewallEvent[];
+  /**
+   * Phase 3+4 attestation state, keyed by scan id. Deliberately SEPARATE from
+   * the scan record so a Solana outage can never erase a completed security
+   * scan. Absent on every pre-existing record, which is correct: those scans
+   * were never attested.
+   */
+  attestations?: Record<string, StoredAttestation>;
 }
 
-const EMPTY: Database = { scans: [], nodes: [], firewall: [] };
+export interface StoredAttestation {
+  scanId: string;
+  /** The three signed scanner results and the consensus over them. */
+  bundle: ProofBundle;
+  attestation: AttestationRecord;
+  consensus: ConsensusResult;
+  /** Independent on-chain verification, refreshed on demand. */
+  verification: {
+    status: string;
+    checkedAt: string;
+    anchoredCommitment: string | null;
+    slot: number | null;
+    error: string | null;
+  } | null;
+  updatedAt: string;
+}
+
+const EMPTY: Database = { scans: [], nodes: [], firewall: [], attestations: {} };
 
 const filePath = isAbsolute(DATA_DIR)
   ? join(DATA_DIR, "dependency-zero.json")
@@ -42,9 +69,10 @@ async function readDb(): Promise<Database> {
       scans: Array.isArray(parsed.scans) ? (parsed.scans as ScanRecord[]) : [],
       nodes: Array.isArray(parsed.nodes) ? (parsed.nodes as ScannerNode[]) : [],
       firewall: Array.isArray(parsed.firewall) ? (parsed.firewall as FirewallEvent[]) : [],
+      attestations: parsed.attestations && typeof parsed.attestations === "object" ? parsed.attestations : {},
     };
   } catch {
-    return { ...EMPTY, scans: [], nodes: [], firewall: [] };
+    return { ...EMPTY, scans: [], nodes: [], firewall: [], attestations: {} };
   }
 }
 
@@ -335,4 +363,40 @@ export async function appendFirewallEvent(event: FirewallEvent): Promise<void> {
 
 export async function listFirewallEvents(limit = 50): Promise<FirewallEvent[]> {
   return readOnly((db) => (db.firewall ?? []).slice(0, limit));
+}
+
+/* -------------------------------------------------------------------------- */
+/* Attestations (Phase 3+4)                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Persist attestation state for a scan.
+ *
+ * Keyed by scan id and idempotent: re-running the same attestation overwrites
+ * that one entry rather than appending, so a retry cannot create a duplicate
+ * chain anchor record.
+ */
+export async function saveAttestation(entry: StoredAttestation): Promise<void> {
+  await withDb((db) => {
+    db.attestations = db.attestations ?? {};
+    db.attestations[entry.scanId] = { ...entry, updatedAt: new Date().toISOString() };
+  });
+}
+
+export async function getAttestation(scanId: string): Promise<StoredAttestation | null> {
+  return readOnly((db) => db.attestations?.[scanId] ?? null);
+}
+
+export async function listAttestations(limit = 200): Promise<StoredAttestation[]> {
+  return readOnly((db) =>
+    Object.values(db.attestations ?? {})
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+      .slice(0, limit),
+  );
+}
+
+/** Confirmed, chain-verified attestations. Used for honest network metrics. */
+export async function listConfirmedAttestations(): Promise<StoredAttestation[]> {
+  const all = await listAttestations(10_000);
+  return all.filter((a) => a.attestation.confirmed === true);
 }

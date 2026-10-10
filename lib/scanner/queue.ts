@@ -1,5 +1,6 @@
 import "server-only";
 
+import { attestScan } from "@/lib/attest/attest-scan";
 import { runScan } from "@/lib/scanner/scan";
 import { completeScan, failScan, listQueued, markScanning, recoverStaleScans } from "@/lib/store";
 
@@ -54,6 +55,15 @@ async function processOne(id: string): Promise<void> {
 
     if (outcome.ok && outcome.resolution) {
       await completeScan(scan.id, outcome.resolution);
+      // Attestation runs AFTER the verdict is persisted, so a Solana failure can
+      // never destroy or downgrade a completed security scan.
+      await attestScan({
+        scanId: scan.id,
+        resolution: outcome.resolution,
+        contents: outcome.contents!,
+        integrityVerified: outcome.integrityVerified === true,
+        integrityNote: outcome.integrityNote ?? null,
+      }).catch(() => undefined);
     } else {
       const code = outcome.error?.code ?? "DZ_UNKNOWN";
       const message = outcome.error?.message ?? "Scan failed for an unknown reason.";
