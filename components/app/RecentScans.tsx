@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertOctagon, AlertTriangle, CheckCircle2, CircleDashed, XCircle } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, ChevronRight, CircleDashed, XCircle } from "lucide-react";
 
 import { EmptyState } from "@/components/app/EmptyState";
 import { TimeAgo } from "@/components/app/TimeAgo";
@@ -36,7 +36,11 @@ function VerdictIcon({ status }: { status: ScanRecord["status"] }) {
 
 export function RecentScans({ scans }: { scans: ScanRecord[] }) {
   return (
-    <section className="dz-card flex h-full flex-col" aria-labelledby="recent-scans-heading">
+    // `min-w-0` matters: the parent grid has no explicit base `grid-cols-1`, so
+    // its implicit track sizes to max-content. Without this the card grows to
+    // the widest row and pushes past the viewport, which clipped the
+    // "View Report" label and stopped the package name truncating.
+    <section className="dz-card flex h-full min-w-0 flex-col" aria-labelledby="recent-scans-heading">
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
         <h2
           id="recent-scans-heading"
@@ -62,12 +66,14 @@ export function RecentScans({ scans }: { scans: ScanRecord[] }) {
           action={{ label: "Scan a Dependency", href: "/scan" }}
         />
       ) : (
-        <ul>
+        <ul className="min-w-0">
           {scans.map((scan) => (
-            <li key={scan.id} className="dz-row">
+            <li key={scan.id} className="dz-row min-w-0">
+              {/* One link per row, so a click can only ever navigate once. The
+                  "View Report" label is a span inside it, not a nested anchor. */}
               <Link
                 href={`/scan/${scan.id}`}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F6F4EC]"
+                className="group flex min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-[#F6F4EC]"
               >
                 <VerdictIcon status={scan.status} />
                 <span className="mono-body min-w-0 flex-1 truncate text-[13px] text-ink">
@@ -78,6 +84,16 @@ export function RecentScans({ scans }: { scans: ScanRecord[] }) {
                   iso={scan.createdAt}
                   className="mono-body w-[62px] shrink-0 text-right text-[11.5px] text-label"
                 />
+                {/* Chevron always; the text needs ~84px that a phone cannot
+                    spare beside the chip and timestamp. The whole row stays
+                    tappable, so the destination remains reachable either way. */}
+                <span
+                  className="flex shrink-0 items-center gap-0.5 text-[12px] font-medium whitespace-nowrap text-label transition-colors group-hover:text-ink"
+                >
+                  <span className="hidden sm:inline">View Report</span>
+                  <ChevronRight aria-hidden="true" strokeWidth={1.9} className="size-3.5" />
+                  <span className="sr-only sm:hidden">View Report</span>
+                </span>
               </Link>
             </li>
           ))}

@@ -79,7 +79,13 @@ await page.locator('[role="dialog"] a[href^="/scan/"]').first().click();
 await page.waitForTimeout(SETTLE);
 check("search result opens threat report", page.url().includes("/scan/"), page.url().replace(base, ""));
 check("report shows a verdict chip", await page.locator("text=/ALLOW|REVIEW|BLOCK|PENDING/").first().isVisible());
-check("report links back to scan history", await page.getByRole("link", { name: /Back to scans/ }).isVisible());
+// The Threat Report now navigates back through the reference's breadcrumb
+// ("Scan > package > Threat Report") instead of a "Back to scans" button.
+const backLink = page.getByRole("link", { name: "Scan", exact: true }).first();
+check("report links back to scan history", await backLink.isVisible());
+await backLink.click();
+await page.waitForTimeout(SETTLE);
+check("report back-link returns to /scan", page.url().endsWith("/scan"), page.url().replace(base, ""));
 
 /* 5. Sidebar navigation. */
 await page.getByRole("link", { name: "Network", exact: true }).click();
@@ -90,22 +96,50 @@ await page.getByRole("link", { name: "Scan", exact: true }).click();
 await page.waitForTimeout(SETTLE);
 check("sidebar -> Scan", page.url().endsWith("/scan"), page.url().replace(base, ""));
 
-/* 6. Scan form: client validation, then a real persisted record. */
-const before = await page.locator("section li a[href^='/scan/']").count();
+/* 6. Scan form: one npm coordinate field. Submission stays on /scan and shows
+      an explicit "created and queued" banner with a View Threat Report action,
+      so "record created" is never confused with "analysis complete". */
+const newestId = async () => (await (await fetch(`${base}/api/scans?limit=1`)).json()).scans[0].id;
+const idBefore = await newestId();
+
+await page.locator("#dz-scan-input").fill("");
 await page.getByRole("button", { name: "Scan", exact: true }).click();
 await page.waitForTimeout(800);
 check(
   "empty submit is blocked with a message",
-  await page.locator("text=Provide a package name and version").isVisible(),
+  await page.locator("text=/Enter a package coordinate/").isVisible(),
 );
 
-await page.getByPlaceholder("express").fill("left-pad");
-await page.getByPlaceholder("4.18.2").fill("1.3.0");
+await page.locator("#dz-scan-input").fill("left-pad@1.3.0");
 await page.getByRole("button", { name: "Scan", exact: true }).click();
 await page.waitForTimeout(SETTLE);
-const after = await page.locator("section li a[href^='/scan/']").count();
-check("scan form creates a record", after === before + 1, `${before} -> ${after}`);
-check("new record is first and PENDING", (await page.locator("section li a[href^='/scan/']").first().innerText()).includes("left-pad@1.3.0"));
+
+check(
+  "scan submission stays on the Scanner",
+  page.url().endsWith("/scan"),
+  page.url().replace(base, ""),
+);
+
+const banner = page.locator('[role="status"]');
+check("scan submission shows a queued success state", await banner.isVisible());
+check(
+  "queued state does not claim analysis completed",
+  /queued/i.test(await banner.innerText()) && !/analysis complete/i.test(await banner.innerText()),
+);
+check("queued state names the real coordinate", (await banner.innerText()).includes("left-pad@1.3.0"));
+
+const reportLink = banner.getByRole("link", { name: /View Threat Report/i });
+check("queued state offers View Threat Report", await reportLink.isVisible());
+const reportHref = await reportLink.getAttribute("href");
+
+const idAfter = await newestId();
+check("scan form creates a persisted record", idAfter !== idBefore, `${idBefore.slice(0, 8)} -> ${idAfter.slice(0, 8)}`);
+check("View Threat Report targets the new record", reportHref === `/scan/${idAfter}`, `${reportHref} vs /scan/${idAfter}`);
+
+await reportLink.click();
+await page.waitForTimeout(SETTLE);
+check("View Threat Report opens that record", page.url().endsWith(`/scan/${idAfter}`), page.url().replace(base, ""));
+check("report shows the real coordinate", (await page.locator("body").innerText()).includes("left-pad"));
 
 /* 7. The new record is reachable from Recent Scans on the Dashboard. */
 await page.getByRole("link", { name: "Dashboard", exact: true }).click();
@@ -174,6 +208,8 @@ check("Escape closes mobile drawer", !(await mobile.locator("#console-nav").isVi
 await burger.click();
 await mobile.waitForTimeout(800);
 await mobile.locator("#console-nav").getByRole("link", { name: "Network", exact: true }).click();
+// Client-side navigation on a synced filesystem can take a while to settle.
+await mobile.waitForURL(/\/network$/, { timeout: 60000 }).catch(() => {});
 await mobile.waitForTimeout(SETTLE);
 check("mobile drawer navigates", mobile.url().endsWith("/network"), mobile.url().replace(base, ""));
 check("drawer auto-closes on navigate", !(await mobile.locator("#console-nav").isVisible().catch(() => false)));

@@ -38,12 +38,23 @@ for (const route of ROUTES) {
     const res = await page.goto(`${base}${route}`, { waitUntil: "load", timeout: 120000 });
     await page.waitForTimeout(1400);
 
-    // Horizontal overflow check.
+    /* Horizontal overflow.
+     *
+     * `scrollWidth` alone is not the right signal: the Scanner's Recent Scans
+     * table has a deliberate 720px min-width inside its own `overflow-x:auto`
+     * scroller, so scrollWidth exceeds the viewport while the page itself still
+     * cannot be panned sideways. Both numbers are reported, but pass/fail is
+     * decided on real scrollability. */
     const overflow = await page.evaluate(() => {
       const doc = document.documentElement;
-      const over = doc.scrollWidth - doc.clientWidth;
+      const rawDelta = doc.scrollWidth - doc.clientWidth;
+
+      window.scrollTo(600, 0);
+      const scrollX = window.scrollX;
+      window.scrollTo(0, 0);
+
       let worst = null;
-      if (over > 0) {
+      if (rawDelta > 0) {
         for (const el of document.querySelectorAll("*")) {
           const r = el.getBoundingClientRect();
           if (r.right > doc.clientWidth + 1 && r.width > 0) {
@@ -52,15 +63,23 @@ for (const route of ROUTES) {
           }
         }
       }
-      return { over, worst };
+      return { over: rawDelta, scrollX, scrolls: scrollX > 0, worst };
     });
 
     const status = res?.status();
-    note(
-      `${route.padEnd(9)} ${String(width).padStart(4)}px  http=${status}  overflow=${overflow.over}px  ` +
-        `problems=${problems.length ? problems.join(" | ") : "none"}` +
-        (overflow.worst ? `  worst=${overflow.worst.tag}@${overflow.worst.right}` : ""),
+    const lines = [];
+    lines.push(`${route.padEnd(9)} ${String(width).padStart(4)}px  http=${status}`);
+    lines.push(
+      `           h-scroll=${overflow.scrolls ? `YES (scrollX=${overflow.scrollX})` : "no"}` +
+        `  scrollWidth-delta=${overflow.over}px` +
+        (overflow.over > 0 && !overflow.scrolls ? " (contained by an inner scroller)" : ""),
     );
+    lines.push(`           problems=${problems.length ? problems.join(" | ") : "none"}`);
+    if (overflow.scrolls) {
+      lines.push(`FAIL ${route} @ ${width}px scrolls horizontally  offender=${overflow.worst?.tag}@${overflow.worst?.right}`);
+      failures++;
+    }
+    note(lines.join("\n  "));
     await page.close();
   }
 }
@@ -75,10 +94,20 @@ for (const width of [1440, 390]) {
   });
   const res = await page.goto(`${base}/`, { waitUntil: "load", timeout: 120000 });
   await page.waitForTimeout(1200);
-  const over = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  const over = await page.evaluate(() => {
+    window.scrollTo(600, 0);
+    const x = window.scrollX;
+    window.scrollTo(0, 0);
+    return { delta: document.documentElement.scrollWidth - document.documentElement.clientWidth, scrollX: x };
+  });
+  if (over.scrollX > 0) {
+    note(`FAIL LANDING / @ ${width}px scrolls horizontally (scrollX=${over.scrollX})`);
+    failures++;
+  }
+  note(
+    `LANDING /   ${String(width).padStart(4)}px  http=${res?.status()}  h-scroll=${over.scrollX > 0 ? "YES" : "no"}` +
+      `  delta=${over.delta}px  problems=${problems.length ? problems.join(" | ") : "none"}`,
   );
-  note(`LANDING /   ${String(width).padStart(4)}px  http=${res?.status()}  overflow=${over}px  problems=${problems.length ? problems.join(" | ") : "none"}`);
   await page.close();
 }
 
