@@ -81,7 +81,18 @@ check("View Threat Report opens the Threat Report", onReport, page.url().replace
 if (onReport) {
   const body = await page.locator("body").innerText();
   check("Report shows real package + version", body.includes("vite") && body.includes("5.4.11"));
-  check("Report shows PENDING honestly", body.includes("PENDING"));
+  // A completed scan shows its REAL verdict; an unresolved one shows PENDING.
+// Either is honest, so assert it matches the record's actual phase.
+const rec = (await (await fetch(`${base}/api/scans/${page.url().split("/").pop()}`)).json()).scan;
+check(
+  "Report verdict matches the stored record",
+  rec.phase === "completed"
+    ? body.includes(rec.resolution.verdict.toUpperCase())
+    : rec.phase === "error"
+      ? body.includes("ERROR") || body.includes("Scan failed")
+      : body.includes("PENDING"),
+  `phase=${rec.phase}`,
+);
   check("Report says not yet attested", body.includes("Not yet attested on Solana Devnet"));
   check("Report shows no fabricated risk score", body.includes("—"), "em dash present");
   check("Report has the 5 reference tabs", (await page.locator("[role=tab]").count()) === 5, `${await page.locator("[role=tab]").count()}`);
@@ -89,7 +100,7 @@ if (onReport) {
   check("Report has Scanner Consensus", await page.getByRole("heading", { name: "Scanner Consensus" }).isVisible());
   check("Report has Key Threats", await page.getByRole("heading", { name: "Key Threats" }).isVisible());
   check("Report has Dependency Graph", await page.getByRole("heading", { name: "Dependency Graph" }).isVisible());
-  check("Report has Scan Metadata", await page.getByRole("heading", { name: "Scan Metadata" }).isVisible());
+  check("Report has Scan Result", await page.getByRole("heading", { name: "Scan Result" }).isVisible());
 
   /* ---- 6. Report tabs switch to honest placeholders ---- */
   await page.getByRole("tab", { name: /On-chain Proof/ }).click();

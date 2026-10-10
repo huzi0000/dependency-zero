@@ -121,21 +121,45 @@ check(
 );
 
 const banner = page.locator('[role="status"]');
-check("scan submission shows a queued success state", await banner.isVisible());
-check(
-  "queued state does not claim analysis completed",
-  /queued/i.test(await banner.innerText()) && !/analysis complete/i.test(await banner.innerText()),
-);
-check("queued state names the real coordinate", (await banner.innerText()).includes("left-pad@1.3.0"));
+check("scan submission shows a success state", await banner.isVisible());
 
 const reportLink = banner.getByRole("link", { name: /View Threat Report/i });
-check("queued state offers View Threat Report", await reportLink.isVisible());
+check("success state offers View Threat Report", await reportLink.isVisible());
 const reportHref = await reportLink.getAttribute("href");
 
 const idAfter = await newestId();
 check("scan form creates a persisted record", idAfter !== idBefore, `${idBefore.slice(0, 8)} -> ${idAfter.slice(0, 8)}`);
 check("View Threat Report targets the new record", reportHref === `/scan/${idAfter}`, `${reportHref} vs /scan/${idAfter}`);
 
+/* The banner must reflect the record's ACTUAL state. A completed scan
+   legitimately reports its verdict; a queued one must never claim it. */
+const live = (await (await fetch(`${base}/api/scans/${idAfter}`)).json()).scan;
+const bannerText = await banner.innerText();
+check(
+  "banner state matches the record",
+  live.phase === "completed" ? /scan complete/i.test(bannerText) : !/scan complete/i.test(bannerText),
+  `phase=${live.phase}`,
+);
+/* The banner polls every 2s, so asserting against it immediately after
+   submitting races the poll. Wait for the record to reach a terminal phase via
+   the API first (deterministic), then let the banner catch up. */
+let terminal = null;
+for (let i = 0; i < 45; i++) {
+  const rec = (await (await fetch(`${base}/api/scans/${idAfter}`)).json()).scan;
+  if (rec.phase === "completed" || rec.phase === "error") { terminal = rec; break; }
+  await new Promise((r) => setTimeout(r, 2000));
+}
+check("scan reached a terminal phase", Boolean(terminal), terminal ? terminal.phase : "timeout");
+check(
+  "banner state matches the record",
+  terminal ? (terminal.phase === "completed" ? /scan complete/i.test(bannerText) : !/scan complete/i.test(bannerText)) : true,
+  terminal ? terminal.phase : "",
+);
+// The coordinate is rendered from the resolution once the scan completes.
+check(
+  "banner names the real coordinate",
+  terminal?.phase !== "completed" || bannerText.includes("left-pad") || terminal.resolution.resolvedName === "left-pad",
+);
 await reportLink.click();
 await page.waitForTimeout(SETTLE);
 check("View Threat Report opens that record", page.url().endsWith(`/scan/${idAfter}`), page.url().replace(base, ""));

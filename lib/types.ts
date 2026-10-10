@@ -1,9 +1,17 @@
 /** Shared domain types for the Dependency Zero Dashboard. */
 
+import type { ScanResolution } from "@/lib/scanner/types";
+
 export type Verdict = "allow" | "review" | "block";
 
-/** Lifecycle of a scan. `pending` is the honest default: a scan is only
- *  resolved once a registered scanner node reports a verdict. */
+/**
+ * Lifecycle of a scan. `pending` is the honest default: a scan is only
+ * resolved once a registered scanner node reports a verdict.
+ *
+ * NOTE: `status` is a superset carrying BOTH lifecycle and verdict, because the
+ * existing console renders it directly. The authoritative lifecycle lives in
+ * `phase`; the authoritative security opinion lives in `verdict`.
+ */
 export type ScanStatus = "pending" | "allow" | "review" | "block" | "error";
 
 export type TimeRange = "24H" | "7D" | "30D" | "ALL";
@@ -16,6 +24,18 @@ export interface ScanRecord {
   packageName: string;
   version: string;
   status: ScanStatus;
+  /**
+   * True lifecycle. Absent on records written before the real scanner existed;
+   * those are legacy pending records and are displayed honestly as such.
+   */
+  phase?: "queued" | "scanning" | "completed" | "error";
+  /** Authoritative security verdict. Null while unknown. */
+  verdict?: Verdict | null;
+  riskScore?: number | null;
+  scannerVersion?: string;
+  policyVersion?: string;
+  /** Full structured result, present only for genuinely completed scans. */
+  resolution?: ScanResolution;
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;

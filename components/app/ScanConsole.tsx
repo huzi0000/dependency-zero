@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
   ChevronRight,
   CircleDashed,
+  Loader2,
   ShieldAlert,
   ShieldCheck,
   XCircle,
@@ -43,6 +44,120 @@ function RowIcon({ status }: { status: ScanStatus }) {
   return <CircleDashed aria-hidden="true" strokeWidth={1.8} className="size-[17px] shrink-0 text-label" />;
 }
 
+/** True while the scanner is still working on a record. */
+function isInFlight(scan: ScanRecord): boolean {
+  return scan.phase === "queued" || scan.phase === "scanning";
+}
+
+/**
+ * Live status for a freshly submitted scan.
+ *
+ * Polls until the scanner reaches a terminal state, then stops. The banner names
+ * the true lifecycle: QUEUED and SCANNING are distinct from COMPLETED, and an
+ * ERROR is never presented as if it were a verdict.
+ */
+function ScanProgress({ scanId }: { scanId: string }) {
+  const [scan, setScan] = useState<ScanRecord | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/scans/${scanId}`, { cache: "no-store" });
+      if (!res.ok) {
+        setFailed(true);
+        return;
+      }
+      const data = (await res.json()) as { scan: ScanRecord };
+      setScan(data.scan);
+    } catch {
+      setFailed(true);
+    }
+  }, [scanId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function tick() {
+      await load();
+      if (cancelled) return;
+      setScan((current) => {
+        if (current && !isInFlight(current)) return current;
+        timer = setTimeout(tick, 2000);
+        return current;
+      });
+    }
+
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [load]);
+
+  if (failed) {
+    return (
+      <div role="status" className="mt-4 rounded-[8px] border border-line bg-white px-4 py-3.5">
+        <p className="text-[13px] text-ink">
+          Scan record created. Live status is unavailable — open the Threat Report to
+          see the stored result.
+        </p>
+      </div>
+    );
+  }
+  if (!scan) return null;
+
+  const done = !isInFlight(scan);
+  const verdict = scan.verdict ?? (done && scan.status !== "error" ? scan.status : null);
+
+  const tone = done
+    ? verdict === "block"
+      ? "border-[#E8B4AC] bg-[#FDF2F0]"
+      : verdict === "review"
+        ? "border-[#EBD3A4] bg-[#FDF7EA]"
+        : verdict === "allow"
+          ? "border-[#B9D9C6] bg-[#F1F8F4]"
+          : "border-line bg-white"
+    : "border-line bg-white";
+
+  return (
+    <div role="status" aria-live="polite" className={`mt-4 rounded-[8px] border px-4 py-3.5 ${tone}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-2.5">
+          {done ? (
+            <RowIcon status={scan.status} />
+          ) : (
+            <Loader2 aria-hidden="true" strokeWidth={2} className="size-[17px] shrink-0 animate-spin text-label" />
+          )}
+          <div className="min-w-0">
+            <p className="text-[13.5px] font-semibold text-ink">
+              {done
+                ? scan.status === "error"
+                  ? "Scan failed"
+                  : `Scan complete — ${verdict?.toUpperCase() ?? "UNKNOWN"}`
+                : scan.phase === "scanning"
+                  ? "Scanning package…"
+                  : "Queued for scanning…"}
+            </p>
+            <p className="mono-body mt-1 text-[12px] leading-[1.6] text-label">
+              {scan.status === "error"
+                ? (scan.error ?? "The scanner could not complete this scan.")
+                : done && scan.resolution
+                  ? `${scan.resolution.resolvedName}@${scan.resolution.resolvedVersion} · risk ${scan.resolution.riskScore}/100 · ${scan.resolution.findings.length} finding(s)`
+                  : done
+                    ? "Analysis completed."
+                    : "Resolving against the npm registry and inspecting the published artifact."}
+            </p>
+          </div>
+        </div>
+        <Link href={`/scan/${scan.id}`} className="dz-btn-primary shrink-0">
+          View Threat Report
+          <ArrowUpRight aria-hidden="true" strokeWidth={2} className="size-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
 function VerdictPill({ status }: { status: ScanStatus }) {
   if (status === "pending") {
     return (
@@ -159,37 +274,11 @@ export function ScanConsole({
             />
           </div>
 
-          {/* Success state. Says "queued", never "complete" — the record exists
-              but no scanner has analysed it, so nothing here may imply that
-              analysis has already happened. */}
-          {created ? (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-4 rounded-[8px] border border-[#B9D9C6] bg-[#F1F8F4] px-4 py-3.5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2 text-[13.5px] font-semibold text-[#155534]">
-                    <CheckCircle2 aria-hidden="true" strokeWidth={1.9} className="size-4 shrink-0" />
-                    Scan record created and queued
-                  </p>
-                  <p className="mono-body mt-1.5 text-[12px] leading-[1.6] text-ink-soft">
-                    {created.packageName}@{created.version} is recorded. Security analysis
-                    has not run yet — a verdict, risk score and threat list appear on the
-                    report once a registered scanner node evaluates it.
-                  </p>
-                </div>
-                <Link
-                  href={`/scan/${created.id}`}
-                  className="dz-btn-primary shrink-0"
-                >
-                  View Threat Report
-                  <ArrowUpRight aria-hidden="true" strokeWidth={2} className="size-4" />
-                </Link>
-              </div>
-            </div>
-          ) : null}
+          {/* Live status for the scan just created. Distinct QUEUED /
+              SCANNING / COMPLETED / ERROR states, and never a claim that
+              analysis finished when only the record was written. */}
+          {created ? <ScanProgress scanId={created.id} /> : null}
+
 
           {/* Example inputs. Seeded from real coordinates already recorded on
               this deployment so they are always packages that actually exist
@@ -260,11 +349,20 @@ export function ScanConsole({
                           {scan.version}
                         </td>
                         <td className="px-4 py-3">
-                          <VerdictPill status={scan.status} />
+                          {isInFlight(scan) ? (
+                            <span className="mono-label inline-flex items-center gap-1.5 rounded bg-[#EFEDE4] px-2 py-[3px] text-[9.5px] text-[#6A6C65]">
+                              <Loader2 aria-hidden="true" strokeWidth={2.5} className="size-2.5 animate-spin" />
+                              {scan.phase === "scanning" ? "SCANNING" : "QUEUED"}
+                            </span>
+                          ) : (
+                            <VerdictPill status={scan.status} />
+                          )}
                         </td>
-                        {/* No scanner engine exists to produce a score, so this is
-                            always an honest dash rather than an invented number. */}
-                        <td className="mono-body px-4 py-3 text-[12.5px] text-label">—</td>
+                        {/* Real score from the scanner when there is one; an
+                            honest dash while queued or for legacy records. */}
+                        <td className="mono-body px-4 py-3 text-[12.5px] text-label">
+                          {typeof scan.riskScore === "number" ? scan.riskScore : "—"}
+                        </td>
                         <td className="px-4 py-3">
                           <TimeAgo
                             iso={scan.createdAt}

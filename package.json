@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "d0": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON cli/d0.ts",
+    "test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.52.0",

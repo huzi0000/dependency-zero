@@ -6,6 +6,7 @@ import { DependencyGraph } from "@/components/app/DependencyGraph";
 import { RiskDial, ConsensusDonut } from "@/components/app/Dials";
 import { KvRow, Panel } from "@/components/app/Panels";
 import { CopyValue } from "@/components/app/CopyValue";
+import { RescanButton } from "@/components/app/RescanButton";
 import { CodeEvidence, KeyThreats } from "@/components/app/ReportVisuals";
 import { ReportTabs } from "@/components/app/ReportTabs";
 import { TimeAgo } from "@/components/app/TimeAgo";
@@ -65,13 +66,24 @@ export default async function ScanDetailPage({
   const tone = toneForStatus(scan.status);
   const coordinate = `${scan.packageName}@${scan.version}`;
 
-  // Only real data is rendered. There is no risk score, no consensus and no
-  // attestation until a scanner node and the Solana program exist.
-  const riskScore = null;
+  /**
+   * The real scan result, when this record was produced by the scanner.
+   *
+   * Legacy records written before the scanner existed have no `resolution`, no
+   * `phase` and no verdict. They are shown honestly as unresolved and offered a
+   * rescan; nothing is inferred or back-filled for them.
+   */
+  const result = scan.resolution ?? null;
+  const isLegacy = !scan.phase && !result;
+
+  // Consensus is a single-scanner deployment, so votes stay 0 until multi-node
+  // voting exists. Never inflated to suggest decentralisation we do not have.
   const votes = scan.votes;
-  const blockVotes = scan.status === "block" ? votes : 0;
-  const reviewVotes = scan.status === "review" ? votes : 0;
-  const allowVotes = scan.status === "allow" ? votes : 0;
+  const blockVotes = result && result.verdict === "block" ? 1 : 0;
+  const reviewVotes = result && result.verdict === "review" ? 1 : 0;
+  const allowVotes = result && result.verdict === "allow" ? 1 : 0;
+
+  const riskScore = result ? result.riskScore : null;
 
   const scanDate = formatDate(scan.createdAt);
 
@@ -102,12 +114,21 @@ export default async function ScanDetailPage({
               {scan.packageName}
             </h1>
             <span className="mono-body rounded-full border border-line-soft bg-white px-3 py-1 text-[13px] text-ink">
-              {scan.version}
+              {/* Show what the registry actually resolved, not just what was typed. */}
+              {result ? result.resolvedVersion : scan.version}
             </span>
           </div>
           <p className="mono-body mt-2 text-[12px] text-label">
-            npm / {scan.packageName} / {scan.version}
+            npm / {scan.packageName} / {result ? result.resolvedVersion : scan.version}
+            {result && result.resolvedVersion !== scan.version ? (
+              <span className="ml-1.5">· requested {scan.version}</span>
+            ) : null}
           </p>
+          {isLegacy ? (
+            <div className="mt-3">
+              <RescanButton scanId={scan.id} />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-start gap-6">
@@ -274,7 +295,7 @@ export default async function ScanDetailPage({
 
           {/* Threats + attestation */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <KeyThreats findings={scan.findings} />
+            <KeyThreats findings={scan.findings} resolution={result} />
 
             <Panel title="On-chain Attestation" icon={<AttestationIcon />}>
               <dl>
@@ -346,27 +367,92 @@ export default async function ScanDetailPage({
             </dl>
           </Panel>
 
-          <CodeEvidence />
+          <CodeEvidence
+            evidence={
+              result?.findings.flatMap((f) =>
+                f.evidence
+                  .filter((e) => e.file.endsWith(".js") || e.file.endsWith(".json"))
+                  .map((e) => ({ file: `${f.ruleId} · ${e.file}`, lines: [e.snippet] })),
+              )[0]
+            }
+          />
 
-          <Panel title="Scan Metadata" icon={<MetadataIcon />}>
+          {/*
+            Real scan provenance. Every value here comes from the scanner run
+            that produced this record. Fields the scanner did not measure stay a
+            dash rather than being filled with something plausible.
+          */}
+          <Panel title="Scan Result" icon={<MetadataIcon />}>
             <dl>
-              <KvRow label="Scanner Version" mono>
-                —
+              <KvRow label="Status">
+                {result ? (
+                  <span className="text-ink">{result.verdict.toUpperCase()}</span>
+                ) : scan.phase === "error" ? (
+                  <span className="text-[#8A2C23]">ERROR</span>
+                ) : (
+                  <span className="text-label">
+                    {isLegacy ? "UNRESOLVED (LEGACY)" : (scan.phase ?? "queued").toUpperCase()}
+                  </span>
+                )}
               </KvRow>
-              <KvRow label="Scan Duration" mono>
-                —
+              <KvRow label="Scanner" mono>
+                {result ? result.scannerVersion : "—"}
               </KvRow>
-              <KvRow label="Analysis Depth">—</KvRow>
-              <KvRow label="Files Analyzed" mono>
-                —
+              <KvRow label="Policy" mono>
+                {result ? result.policyVersion : "—"}
               </KvRow>
-              <KvRow label="Heuristics Used" mono>
-                —
+              <KvRow label="Artifact SHA-256" mono>
+                {result ? (
+                  <CopyValue value={result.artifactSha256} display={`${result.artifactSha256.slice(0, 12)}…`} label="Copy artifact hash" />
+                ) : (
+                  "—"
+                )}
               </KvRow>
-              <KvRow label="AI Agent">—</KvRow>
+              <KvRow label="Registry" mono>
+                {result ? result.registry.replace("https://", "") : "—"}
+              </KvRow>
+              <KvRow label="Tarball Size" mono>
+                {result ? `${(result.tarballBytes / 1024).toFixed(1)} KB` : "—"}
+              </KvRow>
+              <KvRow label="Files Read" mono>
+                {result ? result.fileCount : "—"}
+              </KvRow>
+              <KvRow label="Duration" mono>
+                {result ? `${result.durationMs} ms` : "—"}
+              </KvRow>
+              <KvRow label="Advisories">
+                {result
+                  ? result.advisories.state === "checked"
+                    ? `${result.advisories.vulnerabilities.length} known`
+                    : "unavailable"
+                  : "—"}
+              </KvRow>
               <KvRow label="Created At">{scanDate}</KvRow>
             </dl>
+
+            {result?.rationale ? (
+              <p className="mono-body mt-3 border-t border-line-soft pt-3 text-[11px] leading-[1.6] text-label">
+                <span className="text-ink">Policy rationale: </span>
+                {result.rationale}
+              </p>
+            ) : null}
           </Panel>
+
+          {result && result.dependencies.direct.length > 0 ? (
+            <Panel title="Direct Dependencies">
+              <p className="mono-body mb-2 text-[11px] leading-[1.5] text-label">
+                {result.dependencies.note}
+              </p>
+              <ul className="flex flex-col gap-1">
+                {result.dependencies.direct.map((d) => (
+                  <li key={d.name} className="mono-body flex justify-between gap-3 text-[11.5px]">
+                    <span className="truncate text-ink">{d.name}</span>
+                    <span className="shrink-0 text-label">{d.range}</span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
         </aside>
       </div>
     </div>

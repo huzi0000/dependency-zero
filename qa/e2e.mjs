@@ -17,8 +17,16 @@ const bad = await page.request.post(`${base}/api/scans`, {
 });
 console.log("reject invalid name  ->", bad.status());
 
-const missing = await page.request.post(`${base}/api/scans`, { data: { packageName: "x" } });
-console.log("reject missing ver   ->", missing.status());
+/* A bare name with no version is valid input and resolves via the `latest`
+   dist-tag, so it is accepted rather than rejected. */
+const missing = await page.request.post(`${base}/api/scans`, { data: { packageName: "is-number" } });
+console.log("accept bare name    ->", missing.status());
+
+/* A genuinely unusable specifier must still be rejected. */
+const badSpec = await page.request.post(`${base}/api/scans`, {
+  data: { coordinate: "https://evil.example.com/x.tgz" },
+});
+console.log("reject remote url   ->", badSpec.status());
 
 /* 2. Create a real scan. */
 const created = await page.request.post(`${base}/api/scans`, {
@@ -55,8 +63,15 @@ const recentText = await page.locator("text=express@4.18.2").first().isVisible()
 console.log("dashboard shows scan ->", recentText);
 
 await page.goto(`${base}/scan/${body.scan.id}`, { waitUntil: "load", timeout: 60000 });
-const pendingVisible = await page.locator("text=PENDING").first().isVisible();
-console.log("detail shows PENDING ->", pendingVisible);
+/* The detail page must show the record's ACTUAL state: a real verdict once the
+   scanner has resolved it, PENDING while still in flight. */
+const liveScan = (await (await page.request.get(`${base}/api/scans/${body.scan.id}`)).json()).scan;
+const detailText = await page.locator("body").innerText();
+console.log("detail matches record ->",
+  liveScan.phase === "completed"
+    ? detailText.includes(liveScan.resolution.verdict.toUpperCase())
+    : detailText.includes("PENDING"),
+  `(${liveScan.phase})`);
 
 await page.goto(`${base}/scan/does-not-exist`, { waitUntil: "load", timeout: 60000 });
 console.log("bad scan id -> 404 page:", page.url().includes("does-not-exist"));

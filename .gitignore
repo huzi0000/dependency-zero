@@ -49,5 +49,8 @@ next-env.d.ts
 # local QA artifacts
 qa/shots/
 qa/*.png
+# Ad-hoc QA scratch scripts (temporary reporters, demos, probes).
+# Real automated suites live in tests/ and are always tracked.
 qa/_*.mjs
+qa/_*.ts
 
