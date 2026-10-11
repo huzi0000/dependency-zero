@@ -168,7 +168,11 @@ export function ConsensusDonut({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-sans text-[21px] leading-none font-bold text-ink">{total}</span>
-        <span className="mt-1 text-[10.5px] text-label">Nodes</span>
+        {/* These are votes cast by local scanner roles on one machine, not
+            nodes. The aria-label above says "scanner votes"; the visible
+            caption said "Nodes", which contradicted the product's own
+            "0 independent nodes" disclosure. */}
+        <span className="mt-1 text-[10.5px] text-label">Scanner votes</span>
       </div>
     </div>
   );

@@ -98,15 +98,44 @@ function writeRestricted(file: string, contents: string): void {
 function loadIdentities(): StoredIdentity[] {
   ensureKeyDir();
 
+  /**
+   * Distinguish a first run from key loss.
+   *
+   * `hadKeyDir` is captured before `ensureKeyDir()` may create it, so an
+   * existing key directory with a missing or unreadable key file is treated as
+   * LOSS rather than as a fresh install. Fresh generation is silent; replacing
+   * keys that previously signed evidence is warned about loudly, because every
+   * result signed by the old keys stops being verifiable against a registry
+   * built from the new ones.
+   *
+   * Regeneration is still permitted, because refusing would leave a deployment
+   * permanently unable to scan after a volume problem. The warning is the
+   * control, and `docs/DEPLOYMENT.md` covers mounting persistent storage.
+   */
+  const hadKeyDir = existsSync(KEY_DIR);
+
   if (existsSync(KEY_FILE)) {
     try {
       const parsed = JSON.parse(readFileSync(KEY_FILE, "utf8")) as StoredIdentity[];
       if (Array.isArray(parsed) && parsed.length === 3) return parsed;
     } catch {
-      // Corrupt identity file. We do NOT silently regenerate: that would orphan
-      // every previously signed result. Fall through to regeneration and make
-      // the caller aware via `identitiesRegenerated`.
+      if (hadKeyDir) {
+        console.warn(
+          "[dependency-zero] The signing key file at " +
+            KEY_FILE +
+            " exists but could not be read. New keys will be generated. Any evidence" +
+            " previously signed by the old keys will no longer verify against this registry.",
+        );
+      }
     }
+  } else if (hadKeyDir) {
+    console.warn(
+      "[dependency-zero] The key directory " +
+        KEY_DIR +
+        " exists but contains no signing keys. New keys will be generated. If this host" +
+        " previously scanned anything, previously signed evidence will no longer verify" +
+        " against this registry. Mount persistent storage for DATA_DIR to avoid this.",
+    );
   }
 
   const now = new Date().toISOString();

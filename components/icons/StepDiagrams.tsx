@@ -110,14 +110,16 @@ export function ScanDiagram() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 02 · VERIFY — independent scanner nodes converging on one consensus verdict  */
+/* 02 · DECIDE — three local scanner roles converging on one policy verdict    */
 /* -------------------------------------------------------------------------- */
+
+// Three roles, matching the real scanner registry. This previously drew five
+// nodes and labelled them "independent scanner nodes", which contradicted both
+// the product text and its own "0 independent nodes" disclosure.
 const NODES = [
-  { x: 34, y: 34, delay: 0 },
-  { x: 150, y: 36, delay: 240 },
-  { x: 158, y: 86, delay: 480 },
-  { x: 40, y: 104, delay: 720 },
-  { x: 96, y: 122, delay: 960 },
+  { x: 34, y: 40, delay: 0 },
+  { x: 146, y: 40, delay: 240 },
+  { x: 90, y: 116, delay: 480 },
 ];
 
 export function VerifyDiagram() {
@@ -126,7 +128,7 @@ export function VerifyDiagram() {
       viewBox="0 0 180 136"
       className="h-full w-full"
       role="img"
-      aria-label="Diagram: five independent scanner nodes forming a single consensus verdict"
+      aria-label="Diagram: three local scanner roles signing findings that converge on one deterministic policy verdict"
     >
       <Diamond cx={90} cy={68} rx={78} fill={PLANE_TOP} />
       <Diamond cx={90} cy={68} rx={44} />
@@ -176,7 +178,7 @@ export function ProtectDiagram() {
       viewBox="0 0 180 136"
       className="h-full w-full"
       role="img"
-      aria-label="Diagram: a verified artifact resolving into an approved attestation on the trust layer"
+      aria-label="Diagram: a scanned package whose signed evidence bundle can optionally be anchored as a commitment on Solana Devnet"
     >
       <Diamond cx={90} cy={36} rx={68} fill={PLANE_TOP} />
       <Diamond cx={90} cy={52} rx={50} />

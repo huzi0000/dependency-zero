@@ -8,9 +8,15 @@ import { KvRow, Panel } from "@/components/app/Panels";
 import { CopyValue } from "@/components/app/CopyValue";
 import { RescanButton } from "@/components/app/RescanButton";
 import { CodeEvidence, KeyThreats } from "@/components/app/ReportVisuals";
-import { ReportTabs } from "@/components/app/ReportTabs";
+import {
+  ReportTabs,
+  type ReportAttestation,
+  type ReportConsensus,
+} from "@/components/app/ReportTabs";
 import { TimeAgo } from "@/components/app/TimeAgo";
-import { explorerTxUrl } from "@/lib/config";
+import { explorerTxUrl, SOLANA_CLUSTER } from "@/lib/config";
+import { canonicalizeScannerResult } from "@/lib/attest/canonical";
+import { verifySignature } from "@/lib/attest/verify-signature";
 import { getAttestation, getScan } from "@/lib/store";
 import type { ScanStatus } from "@/lib/types";
 import { toneForStatus } from "@/lib/verdict-tone";
@@ -18,12 +24,37 @@ import { toneForStatus } from "@/lib/verdict-tone";
 export const dynamic = "force-dynamic";
 
 const VERDICT_COPY: Record<ScanStatus, { label: string; sub: string; tone: string }> = {
-  block: { label: "BLOCKED", sub: "Malicious behaviour detected", tone: "text-[#8A2C23]" },
+  block: { label: "BLOCKED", sub: "Installation blocked by security policy", tone: "text-[#8A2C23]" },
   review: { label: "REVIEW", sub: "Manual review recommended", tone: "text-[#6B440B]" },
   allow: { label: "SAFE", sub: "No threats detected", tone: "text-[#155534]" },
   pending: { label: "PENDING", sub: "Awaiting scanner verdict", tone: "text-label" },
   error: { label: "ERROR", sub: "Scan did not complete", tone: "text-[#8A2C23]" },
 };
+
+/** Shown wherever the registry genuinely did not publish a value. */
+const NA = "Not available";
+
+/**
+ * Normalise a registry `repository` field into a browsable https URL.
+ *
+ * The registry stores values like "git+https://github.com/lodash/lodash.git".
+ * Anything that does not parse as an http(s) URL returns null so the UI falls
+ * back to plain text rather than emitting a dangerous href.
+ */
+function repositoryUrl(raw: string): string | null {
+  let s = raw.replace(/^git\+/, "").replace(/\.git$/, "");
+  if (!/^https?:\/\//i.test(s)) {
+    if (/^github\.com\//i.test(s)) s = `https://${s}`;
+    else if (/^[\w.-]+\/[\w.-]+$/.test(s)) s = `https://github.com/${s}`;
+    else return null;
+  }
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Fixed format so the width never jitters between records. */
 function formatDate(iso: string): string {
@@ -95,7 +126,120 @@ export default async function ScanDetailPage({
   const allowVotes = countVote("allow");
   const attestation = stored?.attestation ?? null;
 
+  /**
+   * Serialisable view of the real signed consensus for the Report tabs.
+   *
+   * Signature verification is re-derived here rather than copied from a stored
+   * boolean, so a tampered payload cannot render as verified in the UI.
+   */
+  const reportConsensus: ReportConsensus | null = (() => {
+    if (!stored) return null;
+    const b = stored.bundle;
+    const byKey = new Map(b.registry.entries.map((e) => [e.publicKeyHex, e]));
+    return {
+      verified: stored.consensus.verified,
+      result: stored.consensus.result,
+      quorumMet: stored.consensus.quorumMet,
+      quorumRequired: stored.consensus.quorumRequired,
+      policyVersion: stored.consensus.policyVersion,
+      rationale: stored.consensus.rationale,
+      blockOverride: stored.consensus.blockOverride,
+      votes: b.scanners.map((s) => {
+        const entry = byKey.get(s.payload.scannerPublicKey);
+        const good = entry
+          ? verifySignature(canonicalizeScannerResult(s.payload), s.signature, entry.publicKeyDer)
+          : false;
+        return {
+          role: s.payload.scannerRole,
+          verdict: s.payload.proposedVerdict,
+          riskScore: s.payload.riskScore,
+          publicKeyHex: s.payload.scannerPublicKey,
+          operator: entry?.operator ?? "unknown",
+          signature: s.signature,
+          signatureVerified: good,
+          findingsContribution: s.payload.findingCount,
+        };
+      }),
+      rejected: stored.consensus.rejected.map((r) => ({
+        role: r.role,
+        reason: r.reason,
+        detail: r.detail,
+      })),
+      unavailableRoles: stored.consensus.unavailableRoles,
+    };
+  })();
+
+  const reportAttestation: ReportAttestation | null = attestation && stored
+    ? {
+        status: attestation.status,
+        confirmed: attestation.confirmed,
+        transactionSignature: attestation.transactionSignature,
+        slot: attestation.slot,
+        blockTime: attestation.blockTime,
+        confirmationStatus: attestation.confirmationStatus,
+        explorerUrl: attestation.explorerUrl,
+        commitmentHash: attestation.commitmentHash || stored.bundle.commitment,
+        mechanismLabel: attestation.mechanismLabel,
+        cluster: attestation.cluster,
+        memoProgramId: attestation.memoProgramId,
+        error: attestation.error,
+        submittedAt: attestation.submittedAt,
+        confirmedAt: attestation.confirmedAt,
+        verificationStatus: stored.verification?.status ?? null,
+        anchoredCommitment: stored.verification?.anchoredCommitment ?? null,
+      }
+    : null;
+
   const riskScore = result ? result.riskScore : null;
+
+  /**
+   * Summary built from what actually happened.
+   *
+   * Counts published advisory findings (real known vulnerabilities) separately
+   * from heuristic pattern matches (static signals), because those are
+   * different kinds of evidence and the reader is entitled to know which is
+   * which. Says nothing about a "network" — there is none.
+   */
+  const resultSummary = ((): string => {
+    if (!result) return "No result recorded for this scan.";
+    const advisories = result.findings.filter((f) => f.kind === "advisory");
+    const heuristics = result.findings.filter((f) => f.kind === "heuristic");
+    const bits: string[] = [`Risk score ${result.riskScore}/100 under policy ${result.policyVersion}.`];
+
+    if (result.verdict === "block") {
+      bits.push("Installation of this exact version is blocked by security policy.");
+    } else if (result.verdict === "review") {
+      bits.push("Installation is held for human review before execution.");
+    } else {
+      bits.push("No policy violation was detected in the downloaded artifact.");
+    }
+
+    if (advisories.length > 0) {
+      const ids = advisories.map((a) => a.source?.id).filter(Boolean).slice(0, 3).join(", ");
+      bits.push(
+        `${advisories.length} published vulnerabilit${advisories.length === 1 ? "y" : "ies"} affect this exact version (${ids}).`,
+      );
+    } else if (result.advisories.state === "checked") {
+      bits.push("No published advisory matches this exact version.");
+    } else {
+      bits.push("Advisory lookup did not complete, so the absence of known vulnerabilities is not established.");
+    }
+
+    if (heuristics.length > 0) {
+      bits.push(`${heuristics.length} static code pattern${heuristics.length === 1 ? "" : "s"} matched in the source.`);
+    }
+
+    if (consensus) {
+      bits.push(
+        `Three locally signed scanner roles reached ${consensus.result.toUpperCase()} at quorum ${consensus.quorumMet}/${consensus.quorumRequired}.`,
+      );
+    }
+    if (attestation?.confirmed) {
+      bits.push("The result is anchored and confirmed on Solana Devnet.");
+    }
+
+    return bits.join(" ");
+  })();
 
   const scanDate = formatDate(scan.createdAt);
 
@@ -199,7 +343,20 @@ export default async function ScanDetailPage({
       </div>
 
       {/* ------------------------------------------------------- section tabs */}
-      <ReportTabs scan={scan} threatCount={scan.findings.length} />
+      {/*
+        `devnetSupported` is only the pre-probe hint shown before the client has
+        queried the wallet. It was hardcoded to `true`, which claimed a
+        capability no server had verified. It is now derived from the cluster the
+        deployment is actually configured for; the client then replaces it with
+        a live probe result in ReportTabs.
+      */}
+      <ReportTabs
+        scan={scan}
+        threatCount={scan.findings.length}
+        consensus={reportConsensus}
+        attestation={reportAttestation}
+        devnetSupported={SOLANA_CLUSTER === "devnet"}
+      />
 
       {/* -------------------------------------------------------------- body */}
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
@@ -264,11 +421,16 @@ export default async function ScanDetailPage({
             <Panel title="Summary" className="min-w-0">
               <p className="mono-body text-[12.5px] leading-[1.65] text-ink-soft">
                 {scan.status === "pending"
-                  ? "This scan is queued. A verdict, risk score and threat list appear once a registered scanner node evaluates the package."
+                  ? "This scan is queued. The package has not been downloaded or inspected yet, so no verdict exists."
                   : scan.status === "error"
-                    ? "The scan did not complete. Re-run it from the Scanner page."
-                    : `The network returned a ${verdict.label.toLowerCase()} verdict for this package.`}
+                    ? "The scan did not complete. Nothing is known about this package and it must not be treated as safe. Re-run it from the Scanner page."
+                    : resultSummary}
               </p>
+              {result && result.verdict === "block" ? (
+                <p className="mono-body mt-2 text-[11.5px] leading-[1.6] text-label">
+                  A block is a policy decision to refuse installation of this exact version. It is not a claim that the package is malware.
+                </p>
+              ) : null}
             </Panel>
 
             <Panel
@@ -352,7 +514,14 @@ export default async function ScanDetailPage({
             <Panel title="On-chain Attestation" icon={<AttestationIcon />}>
               <dl>
                 <KvRow label="Network">
-                  {attestation ? attestation.cluster : "Solana Devnet"}
+                  {/* Previously fell back to a literal "Solana Devnet", which
+                      displayed a transaction cluster for scans that were never
+                      anchored. An unanchored scan has no network to report. */}
+                  {attestation ? (
+                    attestation.cluster
+                  ) : (
+                    <span className="text-label">Not anchored</span>
+                  )}
                 </KvRow>
                 <KvRow label="Mechanism">
                   {attestation ? (
@@ -437,12 +606,46 @@ export default async function ScanDetailPage({
               <KvRow label="Version" mono>
                 {scan.version}
               </KvRow>
-              <KvRow label="Publisher">—</KvRow>
-              <KvRow label="First Published">—</KvRow>
-              <KvRow label="Last Updated">—</KvRow>
-              <KvRow label="License">—</KvRow>
-              <KvRow label="Downloads (weekly)">—</KvRow>
-              <KvRow label="Repository">—</KvRow>
+              <KvRow label="Publisher">{result?.metadata?.publisher ?? NA}</KvRow>
+              <KvRow label="First Published">
+                {result?.metadata?.publishedAt ? formatDate(result.metadata.publishedAt) : NA}
+              </KvRow>
+              <KvRow label="Last Updated">
+                {result?.metadata?.modifiedAt ? formatDate(result.metadata.modifiedAt) : NA}
+              </KvRow>
+              <KvRow label="License">{result?.metadata?.license ?? NA}</KvRow>
+              <KvRow label="Package Size">
+                {result?.metadata?.unpackedSize
+                  ? `${(result.metadata.unpackedSize / 1024).toFixed(0)} KB unpacked`
+                  : result
+                    ? `${(result.tarballBytes / 1024).toFixed(0)} KB tarball`
+                    : NA}
+              </KvRow>
+              <KvRow label="Files">
+                {result?.metadata?.fileCount ?? result?.fileCount ?? NA}
+              </KvRow>
+              <KvRow label="Repository">
+                {result?.metadata?.repository && repositoryUrl(result.metadata.repository) ? (
+                  <a
+                    href={repositoryUrl(result.metadata.repository) ?? undefined}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="underline underline-offset-4 hover:text-[#155534]"
+                  >
+                    {result.metadata.repository.replace(/^git\+/, "")}
+                  </a>
+                ) : (
+                  NA
+                )}
+              </KvRow>
+              {result?.metadata?.description ? (
+                <div className="mt-3 border-t border-line-soft pt-3">
+                  <p className="dz-overline">Description</p>
+                  <p className="mono-body mt-1.5 text-[11.5px] leading-[1.6] text-label">
+                    {result.metadata.description}
+                  </p>
+                </div>
+              ) : null}
             </dl>
           </Panel>
 

@@ -75,7 +75,10 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function truncateSignature(sig: string): string {
-  if (sig.length <= 12) return sig;
-  return `${sig.slice(0, 4)}…${sig.slice(-4)}`;
-}
+/**
+ * Shorten a transaction signature for display.
+ *
+ * Re-exported from `lib/format.ts` so the pure helper is reachable from the
+ * `node --test` runner, which cannot import a `.tsx` module.
+ */
+export { truncateSignature } from "@/lib/format";

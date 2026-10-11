@@ -261,7 +261,7 @@ export function ScanConsole({
           </h1>
           <p className="mt-2.5 max-w-[60ch] text-[13.5px] leading-[1.55] text-label">
             Check any package before installation. Get real-time security analysis from
-            our decentralized network.
+            our local scanner roles.
           </p>
 
           <div className="mt-5">

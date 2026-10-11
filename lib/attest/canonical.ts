@@ -275,3 +275,61 @@ export function memoPayload(input: {
     `consensus=${input.consensus}`,
   ].join(" | ");
 }
+
+/* -------------------------------------------------------------------------- */
+/* Registry commitment                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** The fields a registry commitment binds. Mirrors consensus.RegistryEntry. */
+export interface RegistryCommitmentEntry {
+  publicKeyHex: string;
+  role: string;
+  registryVersion: number;
+  revoked: boolean;
+  operator: string;
+}
+
+/**
+ * Domain separator for the registry commitment.
+ *
+ * Pinned as a literal and deliberately NOT derived from DOMAIN. The earlier
+ * implementation used the string `DEPENDENCY-ZERO/REGISTRY`; reusing the shared
+ * ATTESTATION domain here would silently change every hash and invalidate all
+ * existing bundles and their on-chain anchors. Historical output must be
+ * byte-identical, so this constant is frozen.
+ */
+export const REGISTRY_DOMAIN = "DEPENDENCY-ZERO/REGISTRY";
+
+/**
+ * Hash over a scanner registry, for detecting changes to the trusted key set.
+ *
+ * STATUS — read this before relying on it:
+ *
+ *   This value is INFORMATIONAL. It is NOT bound into the attestation
+ *   commitment (every call site passes `registryCommitment: null`) and it does
+ *   NOT appear in the Memo payload, so it is not anchored on Solana and is not
+ *   covered by any signature.
+ *
+ *   It IS recomputable from a bundle's own `registry.entries`, so a verifier can
+ *   use it as a tamper check on the declared registry: if an attacker edits the
+ *   entries without updating the hash, the recomputation disagrees and the
+ *   bundle is rejected. That is the honest guarantee — "the declared registry
+ *   matches the entries shipped alongside it", not "the registry is anchored".
+ *
+ *   Output is byte-identical to the original implementation, so existing
+ *   bundles and their Devnet anchors remain valid.
+ *
+ *   The function lives in this module, which imports no store and no SDK, so
+ *   the standalone verifier can check it without any Dependency Zero service.
+ */
+export function registryCommitment(registry: readonly RegistryCommitmentEntry[]): string {
+  const sorted = [...registry].sort((a, b) =>
+    a.publicKeyHex < b.publicKeyHex ? -1 : a.publicKeyHex > b.publicKeyHex ? 1 : 0,
+  );
+  const h = createHash("sha256");
+  h.update(`v1:${REGISTRY_DOMAIN}\nn=${sorted.length}\n`);
+  for (const e of sorted) {
+    h.update(`${e.publicKeyHex}|${e.role}|${e.registryVersion}|${e.revoked}|${e.operator}\n`);
+  }
+  return h.digest("hex");
+}

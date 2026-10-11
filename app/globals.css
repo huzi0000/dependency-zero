@@ -59,6 +59,13 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /*
+     * Anchored sections must clear the sticky header. Without this, jumping to
+     * /#product or /#network aligns the section top under the 66px (mobile) /
+     * 80px (desktop) fixed header and hides its heading. Matches the header
+     * heights set in components/Navbar.tsx.
+     */
+    scroll-padding-top: 88px;
   }
 
   body {
@@ -202,6 +209,26 @@
   .marquee:hover .marquee-track,
   .marquee:focus-within .marquee-track {
     animation-play-state: paused;
+  }
+
+  /* ---- Globe illustration ---------------------------------------------- */
+  /*
+   * The globe is a static PNG used as an illustration, not live telemetry. The
+   * interaction is a slow idle drift plus a small pointer-driven parallax, which
+   * reads as depth without implying rotation or a distributed node map — the
+   * adjacent copy states "0 independent nodes".
+   *
+   * Pure CSS transforms: no library, and no layout shift because the wrapper
+   * keeps its box while only the inner element transforms.
+   */
+  .globe-drift {
+    transform: translate3d(var(--globe-x, 0px), var(--globe-y, 0px), 0);
+    transition: transform 700ms var(--ease-out-expo);
+    will-change: transform;
+  }
+
+  .globe-stage:hover .globe-drift {
+    transform: translate3d(var(--globe-hover-x, 0px), var(--globe-hover-y, 0px), 0);
   }
 
   /* ---- Micro float ----------------------------------------------------- */
@@ -581,5 +608,10 @@
   .reveal {
     opacity: 1 !important;
     transform: none !important;
+  }
+  /* Globe parallax collapses to a static illustration. */
+  .globe-drift {
+    transform: none !important;
+    transition: none !important;
   }
 }

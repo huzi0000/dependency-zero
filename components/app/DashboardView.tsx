@@ -22,7 +22,8 @@ type Attestation = {
   version: string;
   verdict: ScanRecord["status"];
   votes: number;
-  signature: string;
+  /** Null when the attestation was never anchored. See Attestations.tsx. */
+  signature: string | null;
   createdAt: string;
 };
 
@@ -32,6 +33,14 @@ interface Payload {
   nodes: ScannerNode[];
   attestations: Attestation[];
   range: TimeRange;
+  /**
+   * Total attestation records on this deployment.
+   *
+   * `attestations` is a recent-rows window, so its length is not a total.
+   * Reporting it as "Total Attestations" understated the real count on every
+   * load where the window was full.
+   */
+  attestationTotal: number;
 }
 
 export function DashboardView({ initial }: { initial: Payload }) {
@@ -57,7 +66,11 @@ export function DashboardView({ initial }: { initial: Payload }) {
             (r) => r.json() as Promise<{ scans: ScanRecord[] }>,
           ),
           fetch("/api/attestations?limit=6", { signal: controller.signal }).then(
-            (r) => r.json() as Promise<{ attestations: Attestation[] }>,
+            (r) =>
+              r.json() as Promise<{
+                attestations: Attestation[];
+                counts: { total: number };
+              }>,
           ),
         ]);
         if (cancelled) return;
@@ -66,6 +79,9 @@ export function DashboardView({ initial }: { initial: Payload }) {
           scans: scans.scans,
           nodes: data.nodes,
           attestations: attestations.attestations,
+          // The route's own count, so this matches the server-rendered value
+          // instead of drifting to the window length.
+          attestationTotal: attestations.counts.total,
           range,
         });
       } catch (cause) {
@@ -88,6 +104,7 @@ export function DashboardView({ initial }: { initial: Payload }) {
   }, [range, initial.range]);
 
   const { metrics, scans, nodes, attestations } = data;
+  const attestationTotal = data.attestationTotal ?? attestations.length;
   const scannedSeries = metrics.series.map((b) => b.dependenciesScanned);
   const blockedSeries = metrics.series.map((b) => b.threatsBlocked);
 
@@ -134,26 +151,29 @@ export function DashboardView({ initial }: { initial: Payload }) {
         }`}
       >
         <MetricCard
-          label="Dependencies Scanned"
+          label="Packages Scanned"
           value={metrics.dependenciesScanned}
           series={scannedSeries}
           delta={scannedDelta}
+          tooltip="Packages this deployment actually inspected and returned a security verdict for. Scan requests that failed, and pre-scanner placeholder records, are not counted."
         />
         <MetricCard
-          label="Threats Blocked"
+          label="Packages Rated BLOCK"
           value={metrics.threatsBlocked}
           series={blockedSeries}
           delta={blockedDelta}
           tone="blocked"
+          tooltip="Scans whose security verdict was BLOCK. This is a rating, not a count of prevented installations — the firewall enforcement trail records those separately."
         />
         <MetricCard
-          label="Active Nodes"
+          label="Independent Nodes"
           value={metrics.activeNodes}
           series={[]}
           delta={nodeDelta}
+          tooltip="Independently operated scanner nodes registered on this deployment. Three local scanner roles run here, but they are operated by one person on one machine and are not independent nodes."
         />
         <MetricCard
-          label="Network Accuracy"
+          label="Allow Rate"
           value={metrics.networkAccuracy}
           suffix="%"
           series={[]}
@@ -163,7 +183,7 @@ export function DashboardView({ initial }: { initial: Payload }) {
               ? `${metrics.networkAccuracySamples} of 30 resolved scans needed`
               : `${metrics.networkAccuracySamples} resolved scans`
           }
-          tooltip={`Network accuracy is the share of resolved scans returning ALLOW. It needs at least 30 resolved scans before it can be reported; ${metrics.networkAccuracySamples} so far.`}
+          tooltip="The share of resolved scans that returned ALLOW. This is a verdict distribution, not a measure of detection accuracy — it needs at least 30 resolved scans before it is reported at all."
         />
       </div>
 
@@ -177,14 +197,15 @@ export function DashboardView({ initial }: { initial: Payload }) {
         <div className="dz-card flex flex-col p-4">
           <NetworkStats
             activeNodes={metrics.activeNodes}
-            totalAttestations={attestations.length}
+            totalAttestations={attestationTotal}
+            confirmedAttestations={attestations.filter((a) => a.signature).length}
             consensusRate={null}
             nodeDelta={nodeDelta}
             attestationDelta={attestationDelta}
           />
           <p className="mono-body mt-3 text-[11px] leading-[1.5] text-label">
-            Consensus rate is hidden until a real multi-node voting process runs
-            on this deployment.
+            Anchoring is optional. A consensus rate is not shown because no
+            multi-operator voting process runs on this deployment.
           </p>
         </div>
       </div>

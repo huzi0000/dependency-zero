@@ -42,6 +42,22 @@ export interface ResolvedPackage {
   scripts: Record<string, string>;
   registry: string;
   deprecated?: string;
+
+  /* ---- Authoritative package metadata, copied from the packument ---- */
+  /** Publisher / maintainer name as published. Never inferred. */
+  publisher?: string;
+  /** Source repository URL as published. */
+  repository?: string;
+  /** ISO date this exact version was published, from the packument time map. */
+  publishedAt?: string;
+  /** ISO date the packument itself was last modified. */
+  modifiedAt?: string;
+  /** Unpacked size in bytes, when the registry publishes it. */
+  unpackedSize?: number;
+  /** File count, when the registry publishes it. */
+  fileCount?: number;
+  /** Description as published, truncated for display. */
+  description?: string;
 }
 
 function registryMetadataUrl(name: string): string {
@@ -169,7 +185,25 @@ export async function resolvePackage(
   for (const [k, v] of Object.entries(deps)) {
     if (typeof v === "string") cleanDeps[k] = v;
   }
-  const cleanScripts: Record<string, string> = {};
+  // Metadata is copied verbatim from the packument. Anything absent is left
+  // undefined so the UI can say "Not available" rather than invent a value.
+  const maintainers = Array.isArray(doc.maintainers)
+    ? (doc.maintainers as unknown[])
+        .map((x) => (x as { name?: unknown })?.name)
+        .filter((x): x is string => typeof x === "string" && x.length > 0)
+    : [];
+  const repoRaw = m.repository;
+  const repositoryUrl =
+    typeof repoRaw === "string"
+      ? repoRaw
+      : typeof repoRaw === "object" && repoRaw !== null
+        ? ((repoRaw as { url?: unknown }).url as string | undefined)
+        : undefined;
+  const timeMap = (doc.time ?? {}) as Record<string, unknown>;
+  const versionTime = typeof timeMap[version] === "string" ? (timeMap[version] as string) : undefined;
+  const packumentModified = typeof timeMap.modified === "string" ? (timeMap.modified as string) : undefined;
+
+  const cleanScripts: Record<string, string> = {}; 
   for (const [k, v] of Object.entries(scripts)) {
     if (typeof v === "string") cleanScripts[k] = v;
   }
@@ -182,6 +216,19 @@ export async function resolvePackage(
       Object.entries(distTags).filter(([, v]) => typeof v === "string") as [string, string][],
     ),
     license: typeof m.license === "string" ? m.license : undefined,
+    publisher:
+      maintainers[0] ??
+      (typeof m.author === "string"
+        ? m.author
+        : typeof (m.author as { name?: unknown })?.name === "string"
+          ? ((m.author as { name?: string }).name as string)
+          : undefined),
+    repository: repositoryUrl,
+    publishedAt: versionTime,
+    modifiedAt: packumentModified,
+    unpackedSize: typeof dist.unpackedSize === "number" ? dist.unpackedSize : undefined,
+    fileCount: typeof dist.fileCount === "number" ? dist.fileCount : undefined,
+    description: typeof m.description === "string" ? m.description.slice(0, 300) : undefined,
     tarballUrl: tarball,
     integrity: typeof dist.integrity === "string" ? dist.integrity : undefined,
     shasum: typeof dist.shasum === "string" ? dist.shasum : undefined,

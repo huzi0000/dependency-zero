@@ -11,7 +11,7 @@ import { KvRow, Panel } from "@/components/app/Panels";
 import { AttestationSignature } from "@/components/app/AttestationSignature";
 import { SegmentedPanel, SegmentedTabs } from "@/components/app/SegmentedTabs";
 import { TimeAgo } from "@/components/app/TimeAgo";
-import { explorerTxUrl } from "@/lib/config";
+import { explorerTxUrl } from "@/lib/explorer";
 import { activeNodes, type NetworkData } from "@/lib/network-types";
 
 type Tab = "overview" | "scanners" | "attestations" | "registry";
@@ -76,7 +76,7 @@ function ScannerNodesTable({ data }: { data: NetworkData }) {
   if (nodes.length === 0) {
     return (
       <EmptyState
-        title="No scanner nodes registered"
+        title="No independently registered scanner nodes"
         description="The node registry is empty on this deployment. Scanners appear here with their identity and scan count once they register."
       />
     );
@@ -134,10 +134,10 @@ function ScannerNodesCard({ data }: { data: NetworkData }) {
     <section className="dz-card flex flex-col" aria-labelledby="scanner-nodes">
       <div className="px-4 pt-4 pb-2">
         <h2 id="scanner-nodes" className="text-[15px] font-bold text-ink">
-          Scanner Nodes
+          Scanner Roles
         </h2>
         <p className="mt-1 text-[12.5px] text-label">
-          Independent scanners analyzing packages and submitting signed attestations.
+          Local analytical scanner roles signing verdicts on one machine, plus any independently registered nodes (currently zero).
         </p>
       </div>
       <ScannerNodesTable data={data} />
@@ -146,6 +146,19 @@ function ScannerNodesCard({ data }: { data: NetworkData }) {
 }
 
 function ConsensusCard({ data }: { data: NetworkData }) {
+  /**
+   * Distinct signing roles per scan, counted from the real consensus votes.
+   *
+   * This column previously read `ScanRecord.votes`, a field only written by
+   * `resolveScan`, which no route calls — so it rendered 0 for every row and
+   * implied nobody had signed anything. The server already passes the actual
+   * signed votes; counting them here shows the evidence that exists, and an em
+   * dash when a scan genuinely has none.
+   */
+  const rolesByScan = new Map<string, number>();
+  for (const v of data.votes ?? []) {
+    rolesByScan.set(v.scanId, (rolesByScan.get(v.scanId) ?? 0) + 1);
+  }
   const { resolved } = data;
   return (
     <section className="dz-card flex flex-col" aria-labelledby="consensus-activity">
@@ -154,13 +167,13 @@ function ConsensusCard({ data }: { data: NetworkData }) {
           Latest Consensus Activity
         </h2>
         <p className="mt-1 text-[12.5px] text-label">
-          Verdicts produced by independent scanners.
+          Verdicts signed by three local scanner roles under one operator.
         </p>
       </div>
       {resolved.length === 0 ? (
         <EmptyState
-          title="No consensus events yet"
-          description="Consensus appears here once scanner nodes submit signed verdicts for a scan."
+          title="No signed consensus recorded yet"
+          description="Signed consensus appears here once the three local scanner roles complete a scan."
         />
       ) : (
         <div className="dz-scroll w-full max-w-full overflow-x-auto">
@@ -169,7 +182,7 @@ function ConsensusCard({ data }: { data: NetworkData }) {
               <tr className="dz-overline border-b border-line-soft">
                 <th scope="col" className="px-4 py-2 font-normal">Package</th>
                 <th scope="col" className="px-4 py-2 font-normal">Verdict</th>
-                <th scope="col" className="px-4 py-2 font-normal">Scanners</th>
+                <th scope="col" className="px-4 py-2 font-normal">Signed by</th>
                 <th scope="col" className="px-4 py-2 font-normal">Time</th>
               </tr>
             </thead>
@@ -182,7 +195,9 @@ function ConsensusCard({ data }: { data: NetworkData }) {
                     </Link>
                   </td>
                   <td className="mono-label px-4 py-3 text-[10px] uppercase text-label">{s.status}</td>
-                  <td className="mono-body px-4 py-3 text-[12px] text-label">{s.votes}</td>
+                  <td className="mono-body px-4 py-3 text-[12px] text-label">
+                    {rolesByScan.get(s.id) ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <TimeAgo iso={s.createdAt} className="mono-body text-[12px] text-label" />
                   </td>
@@ -329,7 +344,7 @@ export function NetworkView({ data }: { data: NetworkData }) {
             Scanner Network
           </h1>
           <p className="mt-2 max-w-[62ch] text-[13.5px] text-label">
-            Independent scanners. On-chain attestations. Transparent trust.
+            Local scanner roles. Real Devnet attestations. Honest trust boundaries.
           </p>
         </div>
 
@@ -380,12 +395,27 @@ export function NetworkView({ data }: { data: NetworkData }) {
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
           <ScannerNodesCard data={data} />
           <aside className="flex min-w-0 flex-col gap-4">
-            <Panel title="Node Identities">
+            <Panel title="Local signing keys">
               <p className="mono-body text-[12px] leading-[1.6] text-label">
-                {data.nodes.length > 0
-                  ? "Each row links to its address on the Solana Devnet Explorer."
-                  : "No identities exist yet. A scanner publishes a base58 public key here once it registers."}
+                {data.identities.length === 0
+                  ? "No signing identities have been generated on this host yet. They are created on the first scan."
+                  : `${data.identities.length} Ed25519 signing keys exist on this host, one per scanner role. They are local: no independent operator holds any of them, and none is registered on-chain.`}
               </p>
+              {data.identities.length > 0 ? (
+                <ul className="mt-3 flex flex-col gap-1.5">
+                  {data.identities.map((i) => (
+                    <li
+                      key={i.publicKeyHex}
+                      className="mono-body flex items-center justify-between gap-3 text-[11.5px]"
+                    >
+                      <span className="text-ink">{i.role}</span>
+                      <span className="truncate text-label" title={i.publicKeyHex}>
+                        {i.publicKeyHex.slice(0, 12)}…
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </Panel>
           </aside>
         </div>

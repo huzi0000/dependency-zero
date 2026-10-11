@@ -397,7 +397,16 @@ function pick<T>(
 /* Normalisation                                                               */
 /* -------------------------------------------------------------------------- */
 
-function chainsOf(wallet: WalletStandardWallet): string[] {
+/**
+ * Chains a Wallet Standard wallet advertises, Solana-only.
+ *
+ * Exported because the anchoring gate must read the SAME shapes this module
+ * already handles: `features.chains.supported` (the Wallet Standard spec) and
+ * the legacy top-level `chains`. A second, narrower reader here is what
+ * previously kept the Anchor button permanently disabled with a real Phantom,
+ * because Phantom publishes chains under `features.chains.supported` only.
+ */
+export function chainsOf(wallet: WalletStandardWallet): string[] {
   const features = wallet.features as unknown as Record<string, unknown> | undefined;
   const chainsFeature = features?.chains as { supported?: unknown } | undefined;
   const topLevel = (wallet as unknown as { chains?: unknown }).chains;

@@ -16,6 +16,13 @@ import {
 const STORAGE_KEY = "dz:wallet";
 
 /**
+ * Announced whenever the persisted session is written or cleared, so read-only
+ * observers can stay in sync without mounting a second copy of this hook.
+ * Kept in step with `lib/wallet-session.ts`, which is the subscriber side.
+ */
+const WALLET_CHANGED_EVENT = "dz:wallet-changed";
+
+/**
  * How long to keep re-scanning for providers after mount.
  *
  * Extensions inject at `document_start`, but the standard registry resolves
@@ -397,6 +404,7 @@ function writeStored(value: Persisted) {
   } catch {
     /* private browsing or a full quota — the session simply will not persist */
   }
+  announceWalletChanged();
 }
 
 function clearStored() {
@@ -404,5 +412,21 @@ function clearStored() {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
     /* ignore */
+  }
+  announceWalletChanged();
+}
+
+/**
+ * Tell pure observers that the session changed.
+ *
+ * Components that only need to know *whether* a wallet is connected (rather than
+ * driving the connection) subscribe to this instead of mounting another copy of
+ * this hook, which would add a duplicate set of provider event listeners.
+ */
+function announceWalletChanged() {
+  try {
+    window.dispatchEvent(new CustomEvent(WALLET_CHANGED_EVENT));
+  } catch {
+    /* non-browser environment */
   }
 }

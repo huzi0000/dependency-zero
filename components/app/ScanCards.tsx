@@ -1,19 +1,23 @@
 "use client";
 
-import { Box, Globe, ShieldCheck, FileCode2, Terminal } from "lucide-react";
+import { Box, Globe, ShieldCheck } from "lucide-react";
 
 import { PageTabs, TabPanel, type TabItem } from "@/components/app/PageTabs";
 import { useWalletRequirement } from "@/components/app/WalletRequirement";
 import { useEffect, useState } from "react";
 
-type Tab = "single" | "batch" | "pkgjson" | "cli";
+type Tab = "single";
 
-const TABS: TabItem<Tab>[] = [
-  { id: "single", label: "Single Scan" },
-  { id: "batch", label: "Batch Scan", disabled: true },
-  { id: "pkgjson", label: "From package.json", disabled: true },
-  { id: "cli", label: "CLI Command", disabled: true },
-];
+/**
+ * Only Single Scan is offered.
+ *
+ * Batch Scan, "From package.json" and "CLI Command" were previously listed as
+ * permanently-disabled tabs. A disabled tab can never become active, so its
+ * explanatory panel was unreachable and the control rendered as a dead affordance
+ * that looked like a missing feature. There is no backend behind any of them, so
+ * they are removed rather than shipped as decoration.
+ */
+const TABS: TabItem<Tab>[] = [{ id: "single", label: "Single Scan" }];
 
 /** Right-rail informational panels from the Scanner reference. */
 function HowItWorksCard() {
@@ -21,17 +25,17 @@ function HowItWorksCard() {
     {
       icon: Box,
       title: "Scan",
-      body: "Analyze package code, scripts and dependencies in real-time.",
+      body: "Inspect the published tarball, registry metadata and OSV advisories. Package code is never executed.",
     },
     {
       icon: Globe,
-      title: "Verify",
-      body: "Get consensus from independent scanners on Solana.",
+      title: "Decide",
+      body: "Three local scanner roles sign their findings; a deterministic policy returns ALLOW, REVIEW or BLOCK.",
     },
     {
       icon: ShieldCheck,
       title: "Protect",
-      body: "Block malicious packages before execution.",
+      body: "The firewall enforces that verdict before npm runs. Anchoring to Solana Devnet is optional.",
     },
   ];
 
@@ -61,16 +65,15 @@ function HowItWorksCard() {
 }
 
 function SupportedSourcesCard() {
+  // Only what the scanner actually resolves. GitHub, package.json and CLI
+  // input were listed here while the corresponding tabs were non-functional.
   const sources = [
-    { icon: Box, title: "npm Registry", body: "Public npm packages" },
-    { icon: Globe, title: "GitHub", body: "Scan from repository" },
-    { icon: FileCode2, title: "package.json", body: "Analyze local files" },
-    { icon: Terminal, title: "CLI Command", body: "Scan via terminal" },
+    { icon: Box, title: "npm Registry", body: "Published packages only" },
   ];
 
   return (
     <section className="dz-card p-4">
-      <h2 className="text-[15px] font-bold text-ink">Supported Sources</h2>
+      <h2 className="text-[15px] font-bold text-ink">Supported sources</h2>
       <div className="mt-4 grid grid-cols-2 gap-2.5">
         {sources.map((s) => (
           <div
@@ -85,24 +88,38 @@ function SupportedSourcesCard() {
           </div>
         ))}
       </div>
+      <p className="mono-body mt-3 text-[11px] leading-[1.5] text-label">
+        Git, URLs, local paths and workspace specs are refused rather than
+        resolved.
+      </p>
     </section>
   );
 }
 
 function RealTimeAnalysisCard() {
-  const rows = [
-    ["Static code analysis", "Detects malicious patterns"],
-    ["Dependency graph analysis", "Checks transitive risks"],
-    ["Behavioral analysis", "Analyzes install scripts"],
-    ["Network request detection", "Identifies suspicious endpoints"],
-    ["AI-powered threat detection", "Finds obfuscated and novel threats"],
-    ["Decentralized scanner consensus", "Verified by independent nodes"],
-    ["On-chain attestation", "Recorded on Solana Devnet"],
+  /**
+   * Every row here is implemented and reachable from a real scan.
+   *
+   * Previously this list also claimed "AI-powered threat detection", "Dependency
+   * graph analysis — checks transitive risks" and "Behavioral analysis". None
+   * existed: transitive resolution is hard-coded false, package code is never
+   * executed, and there is no model in the pipeline. A green tick beside an
+   * unimplemented capability is the least defensible thing this page could
+   * show, so those rows are gone rather than reworded.
+   */
+  const rows: [string, string][] = [
+    ["npm metadata & integrity", "Registry record, dist-tags, published hash"],
+    ["Published tarball inspection", "Real archive contents, no execution"],
+    ["Advisory lookup", "OSV vulnerability records for the package"],
+    ["Static pattern detection", "Install scripts and suspicious source"],
+    ["Signed scanner evidence", "Three local roles, one operator"],
+    ["Deterministic verdict", "ALLOW / REVIEW / BLOCK, no exceptions"],
+    ["Optional Solana Devnet anchor", "Proof bundle exported regardless"],
   ];
 
   return (
     <section className="dz-card p-4">
-      <h2 className="text-[15px] font-bold text-ink">Real-time Analysis</h2>
+      <h2 className="text-[15px] font-bold text-ink">What the scanner checks</h2>
       <ul className="mt-3.5 flex flex-col gap-2.5">
         {rows.map(([label, hint]) => (
           <li key={label} className="flex items-center gap-2.5">
@@ -132,23 +149,11 @@ function RealTimeAnalysisCard() {
   );
 }
 
-function UnavailablePanel({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-[8px] border border-dashed border-line px-6 py-14 text-center">
-      <p className="text-[14px] font-semibold text-ink">{title} is not available yet</p>
-      <p className="mono-body mt-2 max-w-[46ch] text-[12px] leading-[1.6] text-label">
-        This input is shown for parity with the reference. It becomes usable once the
-        corresponding backend is implemented.
-      </p>
-    </div>
-  );
-}
-
 /**
  * The Scanner page's tabbed submission card.
  *
- * Only Single Scan is wired to the real `POST /api/scans` endpoint; the other
- * tabs render an explicit unavailable state rather than pretending to work.
+ * Only Single Scan exists and it is wired to the real `POST /api/scans`
+ * endpoint.
  */
 export function ScanTabsCard({
   onSubmit,
@@ -220,16 +225,6 @@ export function ScanTabsCard({
               {error}
             </p>
           ) : null}
-        </TabPanel>
-
-        <TabPanel id="batch" active={tab === "batch"}>
-          <UnavailablePanel title="Batch Scan" />
-        </TabPanel>
-        <TabPanel id="pkgjson" active={tab === "pkgjson"}>
-          <UnavailablePanel title="From package.json" />
-        </TabPanel>
-        <TabPanel id="cli" active={tab === "cli"}>
-          <UnavailablePanel title="CLI Command" />
         </TabPanel>
       </div>
 

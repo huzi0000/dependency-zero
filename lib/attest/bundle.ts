@@ -141,6 +141,62 @@ export function buildProofBundle(params: {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Export-time reconciliation                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Return a bundle whose embedded attestation matches the stored one.
+ *
+ * WHY THIS EXISTS
+ *
+ * Older wallet-anchored records stored the confirmed attestation only in
+ * `stored.attestation`; the copy embedded inside the exported bundle still said
+ * `not_started`. A third party downloading that bundle was told
+ * "nothing was anchored for this scan" for a scan that was in fact confirmed and
+ * finalized on Devnet.
+ *
+ * WHAT IT CHANGES — and what it deliberately does not:
+ *
+ *   changed   : only the embedded `attestation` block, and only to the values the
+ *               server already holds and has already independently verified.
+ *   unchanged : `commitment`, `scanners`, `consensus`, `memoData` and every
+ *               signature. This is a re-statement of stored truth, never a
+ *               re-derivation of proof, so historical anchors stay valid and no
+ *               signed field can be altered by exporting.
+ *
+ * Pure and idempotent: reconciling an already-consistent bundle returns it
+ * unchanged, and reconciling twice is the same as reconciling once.
+ */
+export function reconcileBundleAttestation<T extends ProofBundle>(
+  bundle: T,
+  storedAttestation: ProofBundle["attestation"],
+): T {
+  const embedded = bundle.attestation;
+
+  const alreadyConsistent =
+    embedded.transactionSignature === storedAttestation.transactionSignature &&
+    embedded.confirmed === storedAttestation.confirmed &&
+    embedded.slot === storedAttestation.slot &&
+    embedded.commitmentHash === storedAttestation.commitmentHash;
+
+  if (alreadyConsistent) return bundle;
+
+  return {
+    ...bundle,
+    attestation: {
+      ...storedAttestation,
+      // The commitment is a property of the signed evidence. Never let a stale
+      // or mismatched copy reach the exported proof.
+      commitmentHash: bundle.commitment,
+      memoData: bundle.memoData,
+      memoProgramId: bundle.expectedMemoProgramId,
+      scanId: bundle.scan.id,
+      artifactSha256: bundle.scan.artifactSha256,
+    },
+  };
+}
+
+/* -------------------------------------------------------------------------- */
 /* Offline verification of a bundle (no network)                                */
 /* -------------------------------------------------------------------------- */
 

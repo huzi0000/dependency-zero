@@ -16,7 +16,9 @@ import {
 
 import { useWalletState } from "@/components/app/WalletRequirement";
 import type { DetectedWallet } from "@/lib/wallet-providers";
-import { explorerAddressUrl } from "@/lib/config";
+// Client component: imports the client-safe Explorer helper, not `lib/config`,
+// which resolves DATA_DIR from node:os at module scope.
+import { explorerAddressUrl } from "@/lib/explorer";
 
 /** Human label for a Wallet Standard chain identifier. */
 function chainLabel(chain: string): string {
@@ -171,7 +173,7 @@ export function WalletChip() {
                     /* clipboard blocked — the address is selectable above */
                   }
                 }}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
               >
                 {copied ? (
                   <Check aria-hidden="true" strokeWidth={2} className="size-3.5 text-[#155534]" />
@@ -184,7 +186,7 @@ export function WalletChip() {
                 href={explorerAddressUrl(connected.address)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
+                className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
               >
                 Explorer
                 <ExternalLink aria-hidden="true" strokeWidth={1.7} className="size-3.5" />
@@ -198,7 +200,7 @@ export function WalletChip() {
                 void disconnect();
                 setOpen(false);
               }}
-              className="mt-2 h-9 w-full rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
+              className="mt-2 h-11 w-full rounded-[7px] border border-line-soft text-[13px] font-medium text-ink transition-colors hover:bg-[#F3F1E8]"
             >
               Disconnect
             </button>

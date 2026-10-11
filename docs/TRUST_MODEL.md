@@ -132,12 +132,46 @@ without invalidating the transaction signature.
 ### The scanner registry
 
 The registry is **off-chain and local**. Its entries describe keys this host
-trusts. A registry commitment hash may be anchored on Devnet, which lets an
-independent party confirm the trusted key set had not changed — but that is a
-hash of a local list, not an on-chain registry that enforces anything.
+trusts. It is a hash of a local list, not an on-chain registry that enforces
+anything.
 
 `onChainProgramDeployed` is `false` in every proof bundle, and the standalone
 verifier **fails** a bundle that claims otherwise.
+
+#### The registry commitment is informational, not anchored
+
+Every proof bundle carries `registry.commitment`, a hash over the registry
+entries. It is easy to read that field as "the registry is anchored". It is not:
+
+- It is **not** part of the Memo payload, so it is not written to Solana.
+- It is **not** bound into the attestation commitment — every call site passes
+  `registryCommitment: null` — so no Ed25519 signature covers it.
+- Nothing on chain can prove what the registry contained at any moment.
+
+What it *does* give is tamper-evidence within the bundle: it is recomputable
+from the `registry.entries` shipped alongside it, so `d0-verify` recomputes the
+hash and fails the bundle if someone edits the entries without updating the
+declared value. That catches the realistic attack — swapping a revoked scanner
+for a friendly key, or flipping `revoked`, to slip a bad attestation past review.
+
+The guarantee is therefore precisely:
+
+> the registry entries in this file match the hash declared beside them.
+
+It is **not**:
+
+> the registry is recorded on chain, or was provably this at anchoring time.
+
+The verifier labels the check `registry hash matches entries (informational,
+not anchored)` so a green tick cannot be misread as a chain guarantee.
+
+#### Backward compatibility
+
+The domain separator is the literal string `DEPENDENCY-ZERO/REGISTRY`, exported
+as `REGISTRY_DOMAIN`. It is deliberately **not** derived from the shared
+`DEPENDENCY-ZERO/ATTESTATION` domain constant, and it is covered by a test.
+Reusing the attestation domain would change every hash and silently invalidate
+all existing bundles and their Devnet anchors.
 
 ## 3. The consensus clamp
 
@@ -180,6 +214,21 @@ install depend on Devnet availability would turn a test cluster into a hard
 dependency of local security, which would be a fail-open hazard rather than a
 hardening measure. Solana is an additional, verifiable audit layer, not a gate.
 
+### Agents are covered by the same policy, not a second one
+
+An OpenCode agent's `npm install` is vetted through a pre-execution hook before
+the shell runs it, so an agent does not have to remember to invoke the firewall.
+That path shares one verdict engine — `lib/firewall/preflight.ts` calls the same
+`parseInstallCommand`, the same `runScan` and the same `decide` as `d0 guard`,
+and writes to the same audit trail.
+
+The scope of that protection is deliberately narrow and is documented in full in
+`docs/OPENCODE_PLUGIN.md`. It is configured bash-tool interception, not
+universal agent security: it does not see shell aliases, wrapper commands, other
+package managers, or a differently named shell tool, and it verifies nothing that
+is already present in `node_modules`. Treat it as a high-value control on the
+most common accidental path, not as a sandbox.
+
 ## 5. Cryptographic guarantees
 
 - Ed25519 via Node's native `crypto`. No custom curve code.
@@ -194,6 +243,100 @@ hardening measure. Solana is an additional, verifiable audit layer, not a gate.
   is the same commitment while a changed finding is a different one.
 - Memo payload carries only the commitment and lookup identifiers — no package
   internals, no secrets, nothing sensitive on a permanent public ledger.
+
+## 5a. Independent verification without Dependency Zero
+
+A third party never needs this application, this database or its API to check a
+proof. They run:
+
+```
+npx d0-verify path/to/d0-proof-<id>.json
+```
+
+The verifier imports **no** store, **no** `@solana/web3.js` and holds no
+credentials. It reads one JSON file, talks to a public Solana Devnet RPC, and
+recomputes everything it can:
+
+| Check | How it is established |
+| --- | --- |
+| Registry honesty | `onChainProgramDeployed` must be `false` |
+| Operator disclosure | `independentOperators` must be `false` |
+| Registry self-consistency | Hash recomputed from the bundle's own entries |
+| Each scanner signature | Ed25519 verified against the bundled public key |
+| Artifact / scan binding | Every signed payload must reference this scan |
+| **Consensus votes** | **Recomputed from the signed payloads and compared** |
+| **Consensus quorum** | **`quorumRequired` / `quorumMet` recomputed and compared** |
+| **Consensus verdict** | **Checked against the derived result (see below)** |
+| Attestation commitment | Recomputed from first principles |
+| Transaction exists | Fetched from Devnet |
+| Memo program | The known-good program must appear in the transaction |
+| On-chain commitment | Must equal the recomputed commitment |
+
+### Consensus is recomputed, never trusted
+
+The bundle ships a `consensus` object for display. The attestation commitment
+binds only the consensus **result** string and the **policy version** — not the
+vote list, the quorum counters or the rationale. So a bundle could otherwise
+present fabricated votes and a fabricated quorum and still pass every other
+check.
+
+`d0-verify` therefore rebuilds the consensus from the signed scanner payloads
+and rejects any bundle that disagrees, on three axes:
+
+1. **Votes** — every `role | verdict | riskScore | publicKeyHex` must match.
+2. **Quorum** — `quorumRequired`, `quorumMet`, `verified` and `policyVersion`
+   must match the recomputation.
+3. **Verdict strength** — the claimed result must be equal to, or **stricter
+   than**, the result its own votes produce.
+
+That third rule encodes the section 3 clamp directly into verification. A bundle
+claiming `allow` when its votes produce `block` is rejected. A bundle claiming
+`review` when its votes produce `allow` is **accepted** — that is the real
+`express@4.18.2` case, where the security policy legitimately clamped ALLOW up
+to REVIEW before the commitment was built. Rejecting it would invalidate a
+genuine historical proof.
+
+### Exit codes
+
+`d0-verify` sets a machine-readable exit code so a CI job never has to parse
+stdout:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | **VERIFIED** |
+| `1` | Verification failed — tampered, inconsistent, or invalid reference |
+| `2` | Bundle could not be read or parsed |
+| `3` | Chain verification unavailable (transport) — **explicitly not a pass** |
+| `6` | **NOT_ATTESTED** — the bundle carries no transaction reference at all |
+
+Exit `6` exists because exit `0` previously meant two different things. A fully
+anchored proof and a bundle with nothing on chain both exited `0`, so a caller
+could not distinguish "verified" from "nothing was ever anchored" without
+scraping text. This applies in `--offline` mode too: skipping the chain does
+not make an unanchored scan anchored.
+
+Note that `3` (transport failure) and `6` (nothing anchored) are deliberately
+different. One is "ask again later", the other is "this will never become a
+proof without anchoring it".
+
+## 5b. Anchoring rules
+
+- A scan that is already **confirmed** cannot be re-pointed at a different
+  transaction. Re-anchoring would orphan the original anchor and silently
+  invalidate proof already published, so the API answers **HTTP 409** and leaves
+  the record untouched. The rule lives in `lib/attest/anchor-policy.ts` as a
+  pure, unit-tested function.
+- Re-posting the **same** signature stays idempotent (HTTP 200,
+  `reconciledExisting: true`), so a refresh or double click reconciles rather
+  than fails or anchors twice.
+- Recording a transaction syncs the bundle's embedded attestation with the
+  stored one. They previously drifted, and a third party downloading a genuinely
+  anchored scan was told `NOT_ATTESTED`.
+- Historical records whose exported bundle predates that fix are repaired at
+  **export time**, not by re-anchoring. `reconcileBundleAttestation` restates
+  the stored, already-verified attestation inside the export. It touches no
+  signature, commitment, finding or memo payload, it does not write to the
+  database, and it is idempotent. No historical proof is rewritten.
 
 ## 6. Key handling
 

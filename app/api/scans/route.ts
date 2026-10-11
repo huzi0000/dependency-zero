@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { parseCoordinate, CoordinateError } from "@/lib/scanner/coordinate";
 import { kickQueue } from "@/lib/scanner/queue";
 import { createScan, listScans, searchScans } from "@/lib/store";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,17 @@ export async function GET(request: Request) {
  * are reassembled into a coordinate.
  */
 export async function POST(request: Request) {
+  // Scan submission triggers outbound registry + OSV calls and unpacks a
+  // tarball. Without a brake, one caller can turn this into an amplifier
+  // against third-party APIs. Demo-level in-process limit; see lib/rate-limit.ts.
+  const limiter = checkRateLimit(request, { scope: "scan-create", limit: 10, windowMs: 60_000 });
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { error: "Too many scans requested. Wait a moment and try again." },
+      { status: 429, headers: rateLimitHeaders(limiter) },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -30,15 +30,16 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Dependency Zero — Zero Trust. Before Execution.",
   description:
-    "Real-time dependency security network for AI agents and developers on Solana. Intercept every dependency before execution, verify it across independent scanner nodes, and attest the verdict on-chain.",
+    "Dependency security for AI agents and developers. Scan a package against npm metadata, the published tarball and OSV advisories, sign the findings with three local Ed25519 roles, and optionally anchor the evidence commitment to Solana Devnet. Independently verifiable proof bundles.",
   keywords: [
     "dependency security",
     "supply chain security",
     "AI agent security",
     "Solana",
     "zero trust",
-    "scanner nodes",
     "package scanning",
+    "software supply chain",
+    "npm security",
   ],
   openGraph: {
     type: "website",
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
     siteName: "Dependency Zero",
     title: "Dependency Zero — Zero Trust. Before Execution.",
     description:
-      "Real-time dependency security network for AI agents and developers on Solana.",
+      "Signed dependency security evidence for AI agents, optionally anchored on Solana Devnet.",
     images: [
       {
         url: "/hero-poster.jpg",
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Dependency Zero — Zero Trust. Before Execution.",
     description:
-      "Real-time dependency security network for AI agents and developers on Solana.",
+      "Signed dependency security evidence for AI agents, optionally anchored on Solana Devnet.",
     images: ["/hero-poster.jpg"],
   },
   robots: { index: true, follow: true },

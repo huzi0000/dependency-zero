@@ -24,6 +24,14 @@ credentials/
 seed-phrase*
 mnemonic*
 
+# Signing-key directories. These live outside the repo by default, but
+# DZ_DATA_DIR can be pointed anywhere — including into the working tree.
+# Refuse to track key material even if that happens by mistake.
+keys/
+**/keys/
+scanner-identities.json
+attester*.json
+
 # local scan store (lives outside the tree by default; belt-and-braces)
 .data/
 data/

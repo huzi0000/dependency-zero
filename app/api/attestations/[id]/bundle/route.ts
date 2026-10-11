@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAttestation } from "@/lib/store";
+import { reconcileBundleAttestation } from "@/lib/attest/bundle";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,12 @@ export const dynamic = "force-dynamic";
  * `d0-verify` command. It contains only public data: public keys, signatures,
  * hashes and the on-chain reference. No private key, secret or environment
  * value is ever included.
+ *
+ * Historical wallet-anchored records stored the confirmed attestation outside
+ * the bundle. `reconcileBundleAttestation` restates the stored, already-verified
+ * attestation inside the export so a downloaded proof actually describes the
+ * transaction that exists. It touches no signature, commitment or finding, and
+ * it does not write to the database.
  */
 export async function GET(
   _request: Request,
@@ -26,7 +33,7 @@ export async function GET(
     );
   }
 
-  const b = stored.bundle;
+  const b = reconcileBundleAttestation(stored.bundle, stored.attestation);
 
   // Defence in depth: refuse to emit anything that looks like key material.
   const serialised = JSON.stringify(b);

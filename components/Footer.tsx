@@ -9,11 +9,11 @@ import {
 
 /** Compact single-row footer: logo · links · socials · copyright. */
 const LINKS = [
+  { label: "How It Works", href: "/#how-it-works" },
   { label: "Product", href: "/#product" },
-  { label: "Network", href: "/#network" },
-  { label: "Docs", href: "/docs" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "Blog", href: "/blog" },
+  { label: "Network", href: "/network" },
+  { label: "Scanner", href: "/scan" },
+  { label: "Console", href: "/app" },
 ];
 
 const SOCIALS = [
@@ -71,7 +71,7 @@ export function Footer() {
                   aria-label={label}
                   rel="noreferrer noopener"
                   target="_blank"
-                  className="inline-flex size-8 items-center justify-center rounded-[6px] border border-line-soft text-ink-soft transition-colors duration-200 hover:border-ink hover:text-ink"
+                  className="inline-flex size-11 items-center justify-center rounded-[6px] border border-line-soft text-ink-soft transition-colors duration-200 hover:border-ink hover:text-ink sm:size-8"
                 >
                   <Icon aria-hidden="true" className="size-[15px]" />
                 </a>

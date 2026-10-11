@@ -35,17 +35,22 @@
  *   1  verification failed (tampered, inconsistent, or invalid reference)
  *   2  bundle could not be read/parsed
  *   3  chain verification unavailable (transport) — NOT a pass
+ *   6  NOT_ATTESTED — the bundle carries no transaction reference at all
+ *
+ *   6 is deliberately distinct from 0. A caller previously could not tell a
+ *   confirmed proof from a bundle with nothing on chain, because both exited 0.
  */
 
 import { readFileSync } from "node:fs";
 import * as https from "node:https";
 import { URL } from "node:url";
 
-import { canonicalizeScannerResult, attestationCommitment, scannersCommitment } from "../lib/attest/canonical.ts";
+import { canonicalizeScannerResult, attestationCommitment, scannersCommitment, registryCommitment } from "../lib/attest/canonical.ts";
 import { verifySignature } from "../lib/attest/verify-signature.ts";
 // Only the decoder is shared. The expected program ID below is deliberately a
 // SEPARATE literal rather than an import — see the note on it.
 import { decodeMemoData } from "../lib/attest/memo.ts";
+import { computeConsensus } from "../lib/attest/consensus.ts";
 import type { ProofBundle } from "../lib/attest/bundle.ts";
 
 /**
@@ -75,6 +80,9 @@ interface Check {
   ok: boolean;
   detail: string;
 }
+
+/** Exit code for a bundle that references no transaction at all. */
+const EXIT_NOT_ATTESTED = 6;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -228,6 +236,25 @@ async function main(): Promise<number> {
         : "bundle does not disclose operator independence",
   });
 
+  /* ---- 1b. Registry self-consistency ------------------------------------ */
+  //
+  // The declared registry hash is INFORMATIONAL: it is not in the Memo payload
+  // and not bound into the attestation commitment, so it is NOT anchored on
+  // Solana and no signature covers it. Checking it is therefore not a chain
+  // guarantee — it is a tamper check that the entries shipped inside this bundle
+  // are the entries the declared hash describes. The check name says so, so the
+  // green tick cannot be read as "the registry is on-chain".
+  const declaredRegistry = bundle.registry.commitment ?? "";
+  const recomputedRegistry = registryCommitment(bundle.registry.entries);
+  const registrySelfConsistent = declaredRegistry === recomputedRegistry;
+  checks.push({
+    name: "registry hash matches entries (informational, not anchored)",
+    ok: registrySelfConsistent,
+    detail: registrySelfConsistent
+      ? "entries match their declared hash; this hash is NOT anchored on Solana"
+      : "registry entries were edited without updating the declared hash",
+  });
+
   /* ---- 2. Every signature, verified against the bundled public key ------ */
   const byKey = new Map(bundle.registry.entries.map((e) => [e.publicKeyHex, e]));
   for (const s of bundle.scanners) {
@@ -258,6 +285,79 @@ async function main(): Promise<number> {
     name: "scan binding",
     ok: bundle.scanners.every((s) => s.payload.scanId === bundle.scan.id),
     detail: "every signed result is bound to the declared scan id",
+  });
+
+  /* ---- 3b. DERIVED CONSENSUS — recomputed, never trusted --------------- */
+  //
+  // The bundle ships a `consensus` object that a reader (and the UI) displays.
+  // Taking it at face value would let a tampered bundle show invented votes, a
+  // fabricated quorum or a fabricated rationale and still pass every other
+  // check, because the attestation commitment only binds the consensus RESULT
+  // string and the policy version — not the vote list.
+  //
+  // So the consensus is rebuilt here from the signed payloads and compared.
+  const recomputedConsensus = computeConsensus({
+    results: bundle.scanners,
+    registry: bundle.registry.entries,
+    expectedScanId: bundle.scan.id,
+    expectedArtifactSha256: bundle.scan.artifactSha256,
+    expectedName: bundle.scan.name,
+    expectedVersion: bundle.scan.version,
+  });
+
+  const voteKey = (v: { role: string; verdict: string; riskScore: number; publicKeyHex: string }) =>
+    `${v.role}|${v.verdict}|${v.riskScore}|${v.publicKeyHex}`;
+
+  const recomputedVotes = [...recomputedConsensus.votes]
+    .map(voteKey)
+    .sort()
+    .join(";");
+  const claimedVotes = [...(bundle.consensus.votes ?? [])]
+    .map((v) => voteKey(v as never))
+    .sort()
+    .join(";");
+
+  checks.push({
+    name: "consensus votes derived",
+    ok: recomputedVotes === claimedVotes && recomputedVotes.length > 0,
+    detail:
+      recomputedVotes === claimedVotes && recomputedVotes.length > 0
+        ? `recomputed ${recomputedConsensus.votes.length} vote(s) match the signed payloads`
+        : recomputedVotes.length === 0
+          ? "no valid votes could be derived from the signed payloads"
+          : "bundle votes differ from the votes implied by the signatures",
+  });
+
+  checks.push({
+    name: "consensus quorum derived",
+    ok:
+      bundle.consensus.quorumRequired === recomputedConsensus.quorumRequired &&
+      bundle.consensus.quorumMet === recomputedConsensus.quorumMet &&
+      bundle.consensus.verified === recomputedConsensus.verified &&
+      bundle.consensus.policyVersion === recomputedConsensus.policyVersion,
+    detail: `bundle ${bundle.consensus.quorumMet}/${bundle.consensus.quorumRequired} ${bundle.consensus.policyVersion}, recomputed ${recomputedConsensus.quorumMet}/${recomputedConsensus.quorumRequired} ${recomputedConsensus.policyVersion}`,
+  });
+
+  // The documented safety clamp lets consensus be MORE restrictive than the
+  // vote-derived result, never less. So the claimed result must equal the
+  // derived one or sit strictly above it. A bundle claiming a more permissive
+  // outcome than its own votes justify is rejected.
+  const RANK: Record<string, number> = { allow: 0, review: 1, block: 2 };
+  const derivedResult = recomputedConsensus.result;
+  const claimedResult = bundle.consensus.result;
+  const clampOk =
+    RANK[claimedResult] === undefined
+      ? false
+      : RANK[claimedResult] >= RANK[derivedResult];
+
+  checks.push({
+    name: "consensus verdict not weakened",
+    ok: clampOk,
+    detail: clampOk
+      ? claimedResult === derivedResult
+        ? `result ${claimedResult} matches the derived votes`
+        : `result ${claimedResult} is stricter than the derived ${derivedResult} (documented safety clamp)`
+      : `bundle claims ${claimedResult}, which is MORE permissive than the ${derivedResult} its own votes produce`,
   });
 
   /* ---- 4. Recompute the attestation commitment ------------------------ */
@@ -293,20 +393,35 @@ async function main(): Promise<number> {
   out(`  offline result: ${offlineOk ? c.green("OK") : c.red("FAILED")}`);
   out();
 
+  // Read once, here, so every exit path judges anchoring the same way.
+  const sig = bundle.attestation.transactionSignature;
+
   if (offline) {
+    if (!sig) {
+      // Offline mode does not make an unanchored scan anchored. Returning 0
+      // here would reintroduce exactly the ambiguity exit code 6 exists to
+      // remove: a caller could not tell "nothing was anchored" from "verified".
+      out(c.yellow("NOT_ATTESTED (offline) — nothing was anchored for this scan."));
+      return offlineOk ? EXIT_NOT_ATTESTED : 1;
+    }
     out(offlineOk ? c.green("VERIFIED (offline only — chain not consulted)") : c.red("FAILED"));
     return offlineOk ? 0 : 1;
   }
 
   /* ---- 5. Ask Solana Devnet ------------------------------------------- */
   out(c.bold("Chain verification (Solana Devnet)"));
-  const sig = bundle.attestation.transactionSignature;
 
   if (!sig) {
     out(`  ${c.yellow("SKIP")}  no transaction signature in bundle`);
     out();
     out(c.yellow("NOT_ATTESTED — nothing was anchored for this scan."));
-    return offlineOk ? 0 : 1;
+    // Distinct from 0: an unanchored bundle is not a verified proof, and a
+    // caller must be able to tell the difference without parsing stdout.
+    if (!offlineOk) {
+      out(c.red("  (offline checks also failed)"));
+      return 1;
+    }
+    return EXIT_NOT_ATTESTED;
   }
 
   // A malformed reference is a defective bundle, not an unreachable network.

@@ -15,33 +15,33 @@ export function NetworkHowItWorks({ registeredNodes }: { registeredNodes: number
     {
       n: 1,
       icon: Cpu,
-      title: "Scanner registration",
-      body: "An independent scanner joins the network with a Solana identity and advertises what it can inspect.",
-      chip: registeredNodes > 0 ? `${registeredNodes} registered` : "0 registered",
+      title: "Local scanner roles",
+      body: "Three analytical modules run under one operator identity. What they inspect is fixed by code, not by a registry.",
+      chip: registeredNodes > 0 ? `${registeredNodes} registered` : "0 independent nodes",
       ready: registeredNodes > 0,
     },
     {
       n: 2,
       icon: FileCode2,
-      title: "Dependency inspection",
-      body: "The submitted package is analysed for install scripts, obfuscation and risky transitive dependencies.",
-      chip: "Not connected",
-      ready: false,
+      title: "Package inspection",
+      body: "The published tarball is checked for install scripts, obfuscation and integrity, alongside OSV advisories. Code is never executed.",
+      chip: "Active",
+      ready: true,
     },
     {
       n: 3,
       icon: ShieldCheck,
       title: "Signed findings & consensus",
-      body: "Each scanner signs its findings. Their verdicts are tallied into one ALLOW, REVIEW or BLOCK policy result.",
-      chip: "Unavailable",
-      ready: false,
+      body: "Each role signs its findings with Ed25519. A deterministic policy returns ALLOW, REVIEW or BLOCK — there is no override flag.",
+      chip: "Active",
+      ready: true,
     },
     {
       n: 4,
       icon: Landmark,
-      title: "Solana Devnet attestation",
-      body: "The final verdict and its findings hash are written to Solana, making the result independently verifiable.",
-      chip: "Not deployed",
+      title: "Optional Solana Devnet anchor",
+      body: "A commitment hash can be written to Solana Devnet so anyone can confirm the evidence has not changed. This is not malware detection.",
+      chip: "Optional",
       ready: false,
     },
   ] as const;
@@ -52,7 +52,8 @@ export function NetworkHowItWorks({ registeredNodes }: { registeredNodes: number
         How It Works
       </h2>
       <p className="mt-1 text-[12.5px] text-label">
-        The intended pipeline. Steps marked unavailable are not deployed yet.
+        What this deployment actually does. Solana anchoring is optional and no
+        independent scanner operators exist.
       </p>
 
       <ol className="mt-3.5 flex flex-col gap-2.5 lg:flex-row lg:items-stretch lg:gap-0">

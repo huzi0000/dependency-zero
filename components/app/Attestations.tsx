@@ -5,7 +5,7 @@ import { CopySignatureButton } from "@/components/app/CopySignatureButton";
 import { EmptyState } from "@/components/app/EmptyState";
 import { TimeAgo } from "@/components/app/TimeAgo";
 import { truncateSignature, VERDICT_META } from "@/components/app/verdict";
-import { explorerTxUrl } from "@/lib/config";
+import { explorerTxUrl } from "@/lib/explorer";
 import type { ScanRecord } from "@/lib/types";
 
 type Attestation = {
@@ -14,26 +14,36 @@ type Attestation = {
   version: string;
   verdict: ScanRecord["status"];
   votes: number;
-  signature: string;
+  /**
+   * Null for an attestation that was never anchored.
+   *
+   * `/api/attestations` genuinely returns null here — most attestations on a
+   * real deployment are not anchored, because anchoring is optional. Declaring
+   * this as `string` hid a real null dereference from the type checker.
+   */
+  signature: string | null;
   createdAt: string;
 };
 
 export function NetworkStats({
   activeNodes,
   totalAttestations,
+  confirmedAttestations,
   consensusRate,
   nodeDelta,
   attestationDelta,
 }: {
   activeNodes: number;
   totalAttestations: number;
+  /** How many of the total are actually anchored on Solana Devnet. */
+  confirmedAttestations?: number;
   consensusRate: number | null;
   nodeDelta: number | null;
   attestationDelta: number | null;
 }) {
   const cells = [
-    { value: activeNodes.toLocaleString("en-US"), label: "Active Nodes", delta: nodeDelta },
-    { value: totalAttestations.toLocaleString("en-US"), label: "Total Attestations", delta: attestationDelta },
+    { value: activeNodes.toLocaleString("en-US"), label: "Independent Nodes", delta: nodeDelta },
+    { value: totalAttestations.toLocaleString("en-US"), label: "Attestations", delta: attestationDelta },
     {
       value: consensusRate === null ? "—" : `${consensusRate}%`,
       label: "Consensus Rate",
@@ -42,7 +52,8 @@ export function NetworkStats({
   ];
 
   return (
-    <div className="grid grid-cols-3 divide-x divide-[#E6E3DA] border-b border-line-soft pb-4">
+    <>
+      <div className="grid grid-cols-3 divide-x divide-[#E6E3DA] border-b border-line-soft pb-4">
       {cells.map((cell) => (
         <div key={cell.label} className="px-4 first:pl-0">
           <p className="font-sans text-[24px] leading-none font-bold tracking-[-0.02em] text-ink">
@@ -66,7 +77,14 @@ export function NetworkStats({
           )}
         </div>
       ))}
-    </div>
+      </div>
+      {confirmedAttestations !== undefined && (
+        <p className="mono-body mt-3 text-[11px] leading-[1.5] text-label">
+          {confirmedAttestations} of {totalAttestations} anchored on Solana Devnet. Anchoring is
+          optional — a signed proof bundle can be exported and verified without it.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -100,7 +118,7 @@ export function AttestationsTable({ attestations }: { attestations: Attestation[
               <tr className="dz-overline border-b border-line-soft">
                 <th scope="col" className="px-4 py-2 font-normal">Package</th>
                 <th scope="col" className="px-4 py-2 font-normal">Verdict</th>
-                <th scope="col" className="px-4 py-2 font-normal">Nodes</th>
+                <th scope="col" className="px-4 py-2 font-normal">Signed by</th>
                 <th scope="col" className="px-4 py-2 font-normal">Tx Hash</th>
                 <th scope="col" className="px-4 py-2 font-normal">Time</th>
               </tr>
@@ -129,20 +147,34 @@ export function AttestationsTable({ attestations }: { attestations: Attestation[
                         </span>
                       )}
                     </td>
-                    <td className="mono-body px-4 py-3 text-[12.5px] text-label">{row.votes}</td>
+                    <td className="px-4 py-3 text-[12.5px] text-label">
+                      {/* `/api/attestations` returns no vote count. Showing a
+                          bare 0 would read as "zero scanners signed this",
+                          which is a claim about evidence rather than a fact
+                          about this table's payload. */}
+                      {row.votes > 0 ? row.votes : "—"}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5">
-                        <a
-                          href={explorerTxUrl(row.signature)}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="mono-body inline-flex items-center gap-1 text-[12.5px] text-label underline-offset-4 hover:text-ink hover:underline"
-                        >
-                          {truncateSignature(row.signature)}
-                          <ArrowUpRight aria-hidden="true" strokeWidth={1.8} className="size-3" />
-                        </a>
-                        <CopySignatureButton value={row.signature} />
-                      </span>
+                      {/* Only a real signature may produce an Explorer link. An
+                          unanchored attestation has none, and linking a blank
+                          or literal "null" transaction would be a fabricated
+                          reference — so the absence is stated instead. */}
+                      {row.signature ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <a
+                            href={explorerTxUrl(row.signature)}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="mono-body inline-flex items-center gap-1 text-[12.5px] text-label underline-offset-4 hover:text-ink hover:underline"
+                          >
+                            {truncateSignature(row.signature)}
+                            <ArrowUpRight aria-hidden="true" strokeWidth={1.8} className="size-3" />
+                          </a>
+                          <CopySignatureButton value={row.signature} />
+                        </span>
+                      ) : (
+                        <span className="mono-body text-[12.5px] text-label">Not anchored</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[12.5px] text-label">
                       <TimeAgo

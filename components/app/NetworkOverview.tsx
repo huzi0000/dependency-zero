@@ -21,7 +21,7 @@ export function NetworkOverview({ nodes }: { nodes: ScannerNode[] }) {
         Network Overview
       </h2>
       <p className="mt-1 text-[12.5px] text-label">
-        A decentralized network of independent scanners securing the dependency
+        Local scanner roles securing the dependency supply chain
         ecosystem.
       </p>
 

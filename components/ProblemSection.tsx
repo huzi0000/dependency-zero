@@ -47,8 +47,8 @@ export function ProblemSection() {
               fund loss, data theft, or complete system takeover.
             </p>
             <div className="mt-10">
-              <ActionLink href="/app/threats" variant="ink" size="md" arrow>
-                See Real Threats
+              <ActionLink href="/scan" variant="ink" size="md" arrow>
+                Scan a package
               </ActionLink>
             </div>
           </Reveal>

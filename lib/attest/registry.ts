@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { registryCommitment as computeRegistryCommitment } from "./canonical.ts";
 
 import {
   attestationCommitment,
@@ -51,23 +52,13 @@ export function localRegistry(): RegistryEntry[] {
 }
 
 /**
- * Hash over the whole registry.
+ * Hash over the trusted scanner registry.
  *
- * Anchoring this lets an independent party confirm later that the set of
- * trusted scanner keys had not changed, even though there is no deployed
- * registry program holding the state on-chain.
+ * The implementation lives in `canonical.ts` so the standalone verifier can
+ * recompute it without importing this store-bound module. Output is unchanged.
  */
 export function registryCommitment(registry: RegistryEntry[]): string {
-  const sorted = [...registry].sort((a, b) =>
-    a.publicKeyHex < b.publicKeyHex ? -1 : a.publicKeyHex > b.publicKeyHex ? 1 : 0,
-  );
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
-  const h = createHash("sha256");
-  h.update(`v1:DEPENDENCY-ZERO/REGISTRY\nn=${sorted.length}\n`);
-  for (const e of sorted) {
-    h.update(`${e.publicKeyHex}|${e.role}|${e.registryVersion}|${e.revoked}|${e.operator}\n`);
-  }
-  return h.digest("hex");
+  return computeRegistryCommitment(registry);
 }
 
 /* -------------------------------------------------------------------------- */

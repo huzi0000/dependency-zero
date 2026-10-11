@@ -21,16 +21,15 @@ export function rpcEndpoint(): string {
   return DEFAULT_RPC[SOLANA_CLUSTER];
 }
 
-/** Solana Explorer cluster slug used to build transaction links. */
-export const EXPLORER_CLUSTER = "devnet";
-
-export function explorerTxUrl(signature: string): string {
-  return `https://explorer.solana.com/tx/${signature}?cluster=${EXPLORER_CLUSTER}`;
-}
-
-export function explorerAddressUrl(address: string): string {
-  return `https://explorer.solana.com/address/${address}?cluster=${EXPLORER_CLUSTER}`;
-}
+/**
+ * Solana Explorer cluster slug used to build transaction links.
+ *
+ * The implementation lives in `lib/explorer.ts` so client components can build
+ * links without importing this module — which resolves `DATA_DIR` from
+ * `node:os` at module scope and therefore does not belong in a browser bundle.
+ * Re-exported here so server code keeps one import site.
+ */
+export { EXPLORER_CLUSTER, explorerTxUrl, explorerAddressUrl } from "./explorer.ts";
 
 /**
  * Where the file-backed scan store lives. Swap the repository in `lib/store.ts`

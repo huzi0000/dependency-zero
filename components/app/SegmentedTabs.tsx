@@ -38,7 +38,7 @@ export function SegmentedTabs<T extends string>({
             aria-controls={`dz-net-panel-${tab.id}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(tab.id)}
-            className={`h-[30px] shrink-0 rounded-[6px] px-4 text-[13px] font-medium whitespace-nowrap transition-colors ${
+            className={`h-9 shrink-0 rounded-[6px] px-4 text-[13px] font-medium whitespace-nowrap transition-colors sm:h-[30px] ${
               active
                 ? "bg-ink text-surface"
                 : "text-ink hover:bg-[#F1EFE8]"

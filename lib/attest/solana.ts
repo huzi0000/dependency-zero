@@ -45,6 +45,13 @@ import {
   MEMO_PROGRAM_ID,
 } from "./memo.ts";
 
+// Server-side RPC resolution. `SOLANA_RPC_URL` is honoured here so the whole
+// attestation path honours it, not just the health-check path.
+//
+// Relative, not the `@/` alias: this module is imported directly by the
+// `node --test` runner, which does not resolve tsconfig path aliases.
+import { rpcEndpoint } from "../config.ts";
+
 // Re-exported so existing importers keep a single site, and so the encoding has
 // exactly one implementation shared with the standalone verifier.
 export { MEMO_PROGRAM_ID, MECHANISM_LABEL, CLUSTER, DEVNET_RPC, explorerTxUrl } from "./memo.ts";
@@ -85,8 +92,20 @@ export interface AttestationRecord {
   idempotencyKey: string;
 }
 
-/** Bounded connection with explicit timeouts. */
-export function connect(rpcUrl = DEVNET_RPC): Connection {
+/**
+ * Bounded connection with explicit timeouts.
+ *
+ * Defaults to `rpcEndpoint()` rather than a local literal. It previously
+ * defaulted to a module-level `DEVNET_RPC` constant, so setting `SOLANA_RPC_URL`
+ * changed health checks and wallet balance lookups but silently left the whole
+ * attestation submit and verify path on the public endpoint — with no
+ * diagnostic explaining why a configured provider was being ignored.
+ *
+ * This only affects WHERE requests go. The cluster remains Devnet: nothing here
+ * accepts a network parameter, so a configured endpoint cannot be pointed at a
+ * different cluster by accident.
+ */
+export function connect(rpcUrl = rpcEndpoint()): Connection {
   return new Connection(rpcUrl, {
     commitment: "confirmed",
     confirmTransactionInitialTimeout: 60_000,

@@ -67,7 +67,33 @@ const FORBIDDEN_FLAGS = new Set([
 ]);
 
 /** Characters that could break out of argv into a shell. */
-const SHELL_METACHARS = /[;&|`$<>\n\r\\"'(){}[\]*?!#~]/;
+export const SHELL_METACHARS = /[;&|`$<>\n\r\\"'(){}[\]*?!#~]/;
+
+/**
+ * Turn a raw shell command string into an argument vector, refusing shell syntax.
+ *
+ * An agent's shell tool receives a STRING, while `parseInstallCommand` wants an
+ * argv array. Bridging the two by naive splitting is where a guard gets bypassed:
+ * `npm install a && curl evil` splits into tokens that look harmless. So this
+ * refuses the whole string up front when it contains ANY shell metacharacter,
+ * and only ever splits on whitespace. There is no quote handling, no expansion,
+ * no substitution and no globbing — by design. A caller that needs those must
+ * be handled by a human, not by guessing here.
+ *
+ * Quoting is therefore rejected rather than interpreted: `npm install "pkg"`
+ * fails closed with a message telling the caller to pass plain arguments.
+ */
+export function splitCommandString(raw: string): string[] {
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    throw new CommandRejected("D0_CMD_EMPTY", "Rejected: empty command.");
+  }
+  assertNoMetachars([raw]);
+  const tokens = raw.trim().split(/\s+/).filter((t) => t.length > 0);
+  if (tokens.length === 0) {
+    throw new CommandRejected("D0_CMD_EMPTY", "Rejected: empty command.");
+  }
+  return tokens;
+}
 
 function assertNoMetachars(raw: string[]): void {
   for (const a of raw) {

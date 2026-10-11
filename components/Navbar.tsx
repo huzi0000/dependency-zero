@@ -6,10 +6,10 @@ import { useEffect, useState } from "react";
 import { ActionLink } from "@/components/ui/Button";
 
 const NAV_LINKS = [
+  { label: "How It Works", href: "/#how-it-works" },
   { label: "Product", href: "/#product" },
-  { label: "Network", href: "/#network" },
-  { label: "Docs", href: "/docs" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Network", href: "/network" },
+  { label: "Scanner", href: "/scan" },
 ];
 
 export function Navbar() {
@@ -23,15 +23,53 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Close the mobile sheet on Escape and lock body scroll while it is open.
+  /**
+   * Mobile sheet: Escape to close, scroll lock, focus moved in on open, Tab kept
+   * inside the sheet, and focus returned to the toggle on close.
+   *
+   * Previously Escape and scroll lock existed but focus was never managed, so a
+   * keyboard user could tab straight out of the open sheet into the page behind
+   * it, and after closing, focus was left wherever it happened to be.
+   */
   useEffect(() => {
     if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
+
+    const sheet = document.getElementById("mobile-navigation");
+    const trigger = document.getElementById("mobile-menu-toggle");
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    // Move focus to the first link so the sheet is immediately usable.
+    const first = sheet?.querySelector<HTMLElement>("a, button");
+    first?.focus();
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        trigger?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !sheet) return;
+
+      const focusable = Array.from(
+        sheet.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"),
+      );
+      if (focusable.length === 0) return;
+
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstEl) {
+        event.preventDefault();
+        lastEl.focus();
+      } else if (!event.shiftKey && document.activeElement === lastEl) {
+        event.preventDefault();
+        firstEl.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
@@ -85,6 +123,7 @@ export function Navbar() {
 
           <button
             type="button"
+            id="mobile-menu-toggle"
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
             aria-controls="mobile-navigation"

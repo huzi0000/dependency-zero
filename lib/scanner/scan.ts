@@ -163,6 +163,16 @@ export async function runScan(requested: string, deps: ScanDeps = {}): Promise<S
     dependencies,
     advisories,
     incompleteChecks,
+    metadata: {
+      publisher: resolved.publisher,
+      license: resolved.license,
+      repository: resolved.repository,
+      publishedAt: resolved.publishedAt,
+      modifiedAt: resolved.modifiedAt,
+      unpackedSize: resolved.unpackedSize,
+      fileCount: resolved.fileCount,
+      description: resolved.description,
+    },
   };
 
   return { ok: true, resolution, contents, integrityVerified: integrity.ok, integrityNote: integrity.reason ?? null };

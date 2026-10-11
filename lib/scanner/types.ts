@@ -115,6 +115,25 @@ export interface ScanResolution {
   advisories: AdvisoryResult;
   /** Mandatory checks that did not complete. Non-empty forces at least REVIEW. */
   incompleteChecks: string[];
+  /**
+   * Authoritative registry metadata for the resolved version.
+   *
+   * Copied verbatim from the packument. Every field is optional because the
+   * registry genuinely omits some of them; the UI renders "Not available"
+   * rather than substituting a guess.
+   *
+   * Optional so records persisted before this field existed still validate.
+   */
+  metadata?: {
+    publisher?: string;
+    license?: string;
+    repository?: string;
+    publishedAt?: string;
+    modifiedAt?: string;
+    unpackedSize?: number;
+    fileCount?: number;
+    description?: string;
+  };
 }
 
 export interface FirewallEvent {
@@ -135,4 +154,13 @@ export interface FirewallEvent {
   /** True only when we actually spawned npm. */
   npmExecuted: boolean;
   exitCode: number | null;
+  /**
+   * Which enforcement path produced this event.
+   *
+   * Optional and additive: events written before this field existed have no
+   * value and remain valid. It exists so the audit trail distinguishes a human
+   * running `d0 guard` from an agent's command being intercepted, rather than
+   * presenting both as the same thing.
+   */
+  source?: "cli-guard" | "opencode-plugin";
 }

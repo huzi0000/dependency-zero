@@ -58,8 +58,53 @@ const filePath = isAbsolute(DATA_DIR)
   ? join(DATA_DIR, "dependency-zero.json")
   : join(process.cwd(), DATA_DIR, "dependency-zero.json");
 
-/** Serialises writes so concurrent requests cannot clobber each other. */
+/**
+ * Serialises writes so concurrent requests cannot clobber each other.
+ *
+ * SCOPE OF THIS GUARANTEE — read before relying on it.
+ *
+ * `queue` is a module-level Promise chain. It serialises writes WITHIN ONE Node
+ * process. It is not a cross-process lock. Two processes writing this file
+ * concurrently can interleave read-modify-write cycles and lose a record.
+ *
+ * That is not hypothetical here: the OpenCode npm guard runs inside the
+ * OpenCode server process, which calls `appendFirewallEvent` in this same
+ * module. Running the guard and `next start` against one DATA_DIR therefore
+ * risks silent loss of firewall events.
+ *
+ * The atomic temp-file-plus-rename below prevents a TORN file (the JSON is
+ * never half-written), but it cannot prevent a LOST record, which is the more
+ * dangerous failure for an audit trail: the file stays valid while a writer's
+ * changes vanish.
+ *
+ * Mitigation without a risky custom locking subsystem: point each independent
+ * writer at its own DATA_DIR. See `docs/DEPLOYMENT.md`. A real fix needs file
+ * locking or a database, both out of scope for this phase.
+ */
 let queue: Promise<unknown> = Promise.resolve();
+
+/**
+ * One-time operator warning about shared-store concurrency.
+ *
+ * The OpenCode npm guard runs in a separate process from `next start` and calls
+ * `appendFirewallEvent` in this module. Two unsynchronised writers to one file
+ * lose records. There is no way to detect the other process from inside this
+ * one, so this states the constraint rather than pretending it is handled.
+ */
+let warned = false;
+function warnIfLikelyShared(): void {
+  if (warned) return;
+  warned = true;
+  if (process.env.DZ_STORE_ISOLATED === "1") return;
+  console.warn(
+    "[dependency-zero] Using the file-backed store at " +
+      filePath +
+      ". Writes are serialised within this process only. If another Dependency Zero" +
+      " process (for example the OpenCode npm guard) writes the same DATA_DIR, records" +
+      " can be lost. Set a separate DZ_DATA_DIR per process, or DZ_STORE_ISOLATED=1 when" +
+      " you have done so.",
+  );
+}
 
 async function readDb(): Promise<Database> {
   try {
@@ -86,6 +131,7 @@ async function writeDb(db: Database): Promise<void> {
 }
 
 async function withDb<T>(fn: (db: Database) => Promise<T> | T): Promise<T> {
+  warnIfLikelyShared();
   const run = queue.then(async () => {
     const db = await readDb();
     const result = await fn(db);

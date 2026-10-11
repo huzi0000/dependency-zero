@@ -10,39 +10,47 @@ import {
 
 type TerminalLine = { text: string; accent?: boolean };
 
+/**
+ * The three steps, in the order the product actually performs them.
+ *
+ * The console output is illustrative and is labelled as such on the card. It
+ * previously showed "analyzing behavior", "Consensus: Verified" and
+ * "Attestation: Verified / Status: SAFE" — claiming runtime analysis the product
+ * does not do and an attestation that is usually optional and often absent.
+ */
 const STEPS = [
   {
     number: "01",
     title: "SCAN",
-    body: "Analyze dependency behavior in real-time.",
+    body: "Inspect npm metadata, the published tarball and OSV advisories.",
     terminal: [
       { text: "$ npm install lodash" },
-      { text: "> scanning..." },
-      { text: "> analyzing behavior..." },
+      { text: "> resolving registry metadata" },
+      { text: "> inspecting published tarball" },
     ] as TerminalLine[],
     bar: "18%",
     Diagram: ScanDiagram,
   },
   {
     number: "02",
-    title: "VERIFY",
-    body: "Reach consensus from independent nodes.",
+    title: "DECIDE",
+    body: "Three local scanner roles sign their findings; policy returns ALLOW, REVIEW or BLOCK.",
     terminal: [
-      { text: "Independent scanners" },
-      { text: "Consensus: Verified" },
-      { text: "Risk assessment: Complete", accent: true },
+      { text: "Signed roles  3 of 3" },
+      { text: "Quorum  3/3 reached" },
+      { text: "Verdict  REVIEW", accent: true },
     ] as TerminalLine[],
     bar: "64%",
     Diagram: VerifyDiagram,
   },
   {
     number: "03",
-    title: "PROTECT",
-    body: "On-chain attestation before execution.",
+    title: "PROTECT & PROVE",
+    body: "The firewall enforces the verdict before npm runs. Anchoring is optional.",
     terminal: [
-      { text: "Attestation: Verified" },
-      { text: "Status: SAFE", accent: true },
-      { text: "Network: Solana Devnet" },
+      { text: "npm install  blocked" },
+      { text: "Proof bundle  exported", accent: true },
+      { text: "Solana Devnet  optional anchor" },
     ] as TerminalLine[],
     bar: "82%",
     Diagram: ProtectDiagram,
@@ -77,7 +85,10 @@ function StepCard({ step }: { step: (typeof STEPS)[number] }) {
       <div className="mt-6 rounded-[6px] bg-[#F0ECE4] px-4 pt-4 pb-4 lg:mt-auto">
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <span className="mono-label text-[9px] text-faint">Console</span>
-          <span className="mono-label text-[9px] text-faint">{"// ui example"}</span>
+          {/* Raised from `text-faint` (~2.2:1) to `text-label`. This is the only
+              disclosure that the console output below is illustrative, and it
+              must be legible enough to do its job. */}
+          <span className="mono-label text-[9.5px] text-label">{"// illustrative output"}</span>
         </div>
         <ul className="space-y-[6px]">
           {terminal.map((line) => (
@@ -118,8 +129,10 @@ export function HowItWorks() {
 
           <Reveal className="lg:col-span-5 lg:justify-self-end" delay={80}>
             <p className="mono-body max-w-[46ch] text-[15px] leading-[1.62] text-ink-soft">
-              Every dependency is scanned, verified by independent nodes, and
-              attested on-chain before it ever executes in your environment.
+              Every package you name is scanned and signed before it installs.
+              Signed evidence proves what was inspected and that it has not been
+              altered since — it does not prove the verdict is correct, and the
+              Solana anchor is optional.
             </p>
             <div className="mt-6">
               <ActionLink href="#product" variant="outline" size="sm" arrow>

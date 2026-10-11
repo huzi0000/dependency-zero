@@ -36,6 +36,23 @@ function inRange(record: ScanRecord, from: number | null): boolean {
   return Date.parse(record.createdAt) >= from;
 }
 
+/**
+ * A scan that actually produced a verdict.
+ *
+ * Deliberately narrow, and the reason the headline counts were wrong:
+ *
+ *   - `phase === "completed"` excludes 78 pre-scanner placeholder records that
+ *     have no `phase`, no resolution payload and were never really scanned.
+ *   - it also excludes errored records, which created a scan row but never
+ *     reached a verdict.
+ *
+ * Counting raw rows made "Dependencies Scanned" report 146 when only 50 packages
+ * were ever inspected.
+ */
+function isCompleted(record: ScanRecord): boolean {
+  return record.phase === "completed" && record.status !== "error";
+}
+
 function isBlocked(scan: ScanRecord): boolean {
   return scan.status === "block";
 }
@@ -80,6 +97,7 @@ export async function computeMetrics(range: TimeRange): Promise<Metrics> {
   }));
 
   for (const scan of current) {
+    if (!isCompleted(scan)) continue;
     const index = Math.floor((Date.parse(scan.createdAt) - start) / step);
     if (index < 0 || index >= buckets) continue;
     series[index].dependenciesScanned += 1;
@@ -99,15 +117,17 @@ export async function computeMetrics(range: TimeRange): Promise<Metrics> {
 
   return {
     range,
-    dependenciesScanned: current.length,
-    threatsBlocked: current.filter(isBlocked).length,
+    // Completed scans only. See `isCompleted` — counting raw rows overstated
+    // real inspection by counting placeholders and failures.
+    dependenciesScanned: current.filter(isCompleted).length,
+    threatsBlocked: current.filter(isCompleted).filter(isBlocked).length,
     activeNodes: nodes.length,
     networkAccuracy,
     networkAccuracySamples: resolved.length,
     previous: previous
       ? {
-          dependenciesScanned: previous.length,
-          threatsBlocked: previous.filter(isBlocked).length,
+          dependenciesScanned: previous.filter(isCompleted).length,
+          threatsBlocked: previous.filter(isCompleted).filter(isBlocked).length,
           activeNodes: nodes.length,
         }
       : null,

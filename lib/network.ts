@@ -1,8 +1,9 @@
 import "server-only";
 
-import { listAttestations, type StoredAttestation } from "@/lib/store-core";
+import { listAttestations, listFirewallEvents, type StoredAttestation } from "@/lib/store-core";
 import type { ConsensusResult } from "@/lib/attest/consensus";
 import type { ScanRecord } from "@/lib/types";
+import type { FirewallEvent } from "@/lib/scanner/types";
 import type {
   AttestationRow,
   ConsensusVoteRow,
@@ -80,6 +81,28 @@ export function collectConsensusEvents(
   });
   return rows;
 }
+
+/**
+ * Scanner identities configured on this host.
+ *
+ * `onChainRegistered` is false for all of them, permanently, in this
+ * deployment: no on-chain registry program exists. The registry is local and
+ * anchored by commitment only, and the UI says exactly that.
+ */
+/**
+ * Package coordinates that appear only in the automated test suite.
+ *
+ * These are real strings a test passed to the preflight, not real installations.
+ * They are used to build an explicitly-labelled operational view of the firewall
+ * trail. The stored events themselves are never touched.
+ *
+ * The implementation lives in `lib/firewall-events.ts`, which is pure and has no
+ * server import, so the test suite can exercise it directly.
+ */
+export {
+  isTestGeneratedFirewallEvent,
+  partitionFirewallEvents,
+} from "@/lib/firewall-events";
 
 /**
  * Scanner identities configured on this host.

@@ -1,12 +1,22 @@
 import Image from "next/image";
 import { ActionLink } from "@/components/ui/Button";
 import { Reveal } from "@/components/ui/Reveal";
+import { GlobeParallax } from "@/components/GlobeParallax";
 
+/**
+ * Real, checkable facts about this deployment.
+ *
+ * Previously four invented counters (420 active nodes, 18.4K attestations,
+ * 2.1s average scan, 99.7% consensus). None was computed from anything. The
+ * counts here are the ones that are actually true and verifiable: three local
+ * analytical roles, zero independently registered nodes, Ed25519 signatures, and
+ * Solana Devnet as the attestation cluster.
+ */
 const NETWORK_STATS = [
-  { value: "420", label: "Active nodes" },
-  { value: "18.4K", label: "Total attestations" },
-  { value: "2.1s", label: "Avg scan time" },
-  { value: "99.7%", label: "Consensus rate" },
+  { value: "3", label: "Local scanner roles" },
+  { value: "0", label: "Independent nodes" },
+  { value: "Ed25519", label: "Verdict signatures" },
+  { value: "Devnet", label: "Attestation cluster" },
 ];
 
 /** Thin outlined chip used to annotate the globe artwork. */
@@ -63,52 +73,63 @@ export function GlobalNetwork() {
         <div className="grid grid-cols-1 items-center gap-y-14 lg:grid-cols-12 lg:gap-x-6 lg:gap-y-0">
           {/* Globe --------------------------------------------------------- */}
           <Reveal className="order-2 lg:order-1 lg:col-span-7">
-            <div className="relative mx-auto w-full max-w-[688px]">
-              <Image
-                src="/global-network-globe.png"
-                alt="Global map of connected Dependency Zero scanner nodes"
-                width={1536}
-                height={1024}
-                loading="lazy"
-                decoding="async"
-                className="float-slow block w-full"
-              />
+            {/*
+             The globe is an ILLUSTRATION, not live telemetry — the section
+             states "0 independent nodes" directly beneath it. The interaction
+             is therefore deliberately restrained: a slow float plus a small
+             pointer-driven shift that reads as depth, never as a rotating globe
+             or a live node map. CSS transforms only, no library, no layout
+             shift (the wrapper keeps its box), and `prefers-reduced-motion`
+             collapses it to a static image.
+           */}
+            <GlobeParallax>
+              <div className="globe-drift">
+                <Image
+                  src="/global-network-globe.png"
+                  alt="Illustrative world map graphic. Dependency Zero has no geographically distributed scanner nodes."
+                  width={1536}
+                  height={1024}
+                  loading="lazy"
+                  decoding="async"
+                  className="float-slow block w-full"
+                />
+              </div>
               <Chip
-                value="420+"
-                label="Scanner nodes"
+                value="3 roles"
+                label="Local scanners"
                 align="right"
                 className="absolute top-[11%] left-[4%] sm:left-[6%]"
               />
               <Chip
-                value="Global"
-                label="Coverage"
+                value="0"
+                label="Independent nodes"
                 align="right"
                 className="absolute top-[53%] left-[4%] sm:left-[6%]"
               />
               <Chip
-                value="Real-time"
-                label="Threat intelligence"
+                value="Devnet"
+                label="Anchor cluster"
                 align="left"
                 className="absolute top-[64%] left-[38%] sm:left-[62%]"
               />
-            </div>
+            </GlobeParallax>
           </Reveal>
 
           {/* Copy ---------------------------------------------------------- */}
           <Reveal className="order-1 lg:order-2 lg:col-span-5" delay={90}>
-            <p className="eyebrow">A decentralized security network</p>
+            <p className="eyebrow">Signed security evidence</p>
             <h2
               id="network-heading"
               className="serif-display mt-5 text-[clamp(2.15rem,4.3vw,3.6rem)] tracking-[0.005em] italic text-[#F2F1EC]"
             >
-              A global network
+              Signed evidence.
               <br />
-              securing the ecosystem.
+              Anchored on Solana.
             </h2>
             <p className="mono-body mt-6 max-w-[44ch] text-[16px] leading-[1.68] text-[#B9B9B1]">
-              Hundreds of independent scanner nodes analyze, verify and attest
-              dependencies in real-time. Built on Solana for speed, transparency
-              and unmatched security.
+              Three local scanner roles sign package findings. Exportable proof
+              bundles let anyone verify those signatures and match the evidence
+              against a commitment recorded on Solana Devnet.
             </p>
             <div className="mt-8">
               <ActionLink href="/network" variant="onDark" size="md" arrow>

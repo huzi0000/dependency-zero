@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getAttestation } from "@/lib/store";
 import { verifyOnChain, connect } from "@/lib/attest/solana";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,26 @@ export const dynamic = "force-dynamic";
  * check pass. A signature string alone never yields VERIFIED.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+
+  // This route makes an outbound RPC call on every request, so it is the
+  // second RPC-amplifying endpoint. Verified locally with no signature never
+  // reaches the chain; only a recorded transaction does.
+  const limiter = checkRateLimit(request, {
+    scope: "attest-verify",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!limiter.allowed) {
+    return NextResponse.json(
+      { status: "RATE_LIMITED", scanId: id, reason: "Too many verification requests." },
+      { status: 429, headers: rateLimitHeaders(limiter) },
+    );
+  }
+
   const stored = await getAttestation(id);
 
   if (!stored) {
