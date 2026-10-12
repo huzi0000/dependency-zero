@@ -5,17 +5,30 @@ import type { NextConfig } from "next";
  *
  * `unsafe-inline` is required for styles because Next.js injects a runtime
  * stylesheet tag, and Tailwind's preflight is inlined. Scripts stay strict —
- * `'unsafe-eval'` is deliberately NOT granted, which matters because this app
- * bundles `@solana/web3.js` for wallet signing.
+ * `'unsafe-eval'` is deliberately NOT granted in production, which matters
+ * because this app bundles `@solana/web3.js` for wallet signing.
+ *
+ * `'unsafe-eval'` IS granted in development only. React's development build
+ * calls `eval()` to reconstruct component stacks when an error crosses a
+ * bundler boundary, which the production build never does. Without it the
+ * browser console reports `eval() is not supported in this environment` on
+ * every page in `next dev`. It is gated on NODE_ENV rather than enabled
+ * globally so a production deploy keeps the stricter policy.
  *
  * `connect-src` must permit the Solana cluster: the browser talks to Devnet RPC
  * directly when the user anchors through their own wallet. No provider
  * credential is ever placed here.
  */
+const isDev = process.env.NODE_ENV !== "production";
+
+const scriptSrc = isDev
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+
 const csp = [
   "default-src 'self'",
   // Next.js emits an inline bootstrap script for hydration.
-  "script-src 'self' 'unsafe-inline'",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   // next/image optimisation serves media from this origin.
   "img-src 'self' data: blob:",

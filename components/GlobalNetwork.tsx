@@ -53,7 +53,8 @@ function Chip({
           <span className="font-sans text-[15px] leading-none font-bold tracking-[-0.01em] text-[#F4F3EE] sm:text-[17px]">
             {value}
           </span>
-          <span className="mono-label mt-1.5 text-[9px] leading-none tracking-[0.12em] whitespace-nowrap text-[#8C8C84] sm:text-[10px] sm:tracking-[0.16em]">
+          <span className="mono-label mt-1.5 text-[10.5px] leading-[1.45] tracking-[0.1em] text-[#9B9B92] sm:tracking-[0.16em]"
+          >
             {label}
           </span>
         </span>
@@ -142,7 +143,7 @@ export function GlobalNetwork() {
             <dl className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4">
               {NETWORK_STATS.map((stat) => (
                 <div key={stat.label}>
-                  <dt className="mono-label text-[9px] leading-[1.4] tracking-[0.1em] whitespace-nowrap text-[#85857C]">
+                  <dt className="mono-label text-[10.5px] leading-[1.45] tracking-[0.1em] text-[#9B9B92]">
                     {stat.label}
                   </dt>
                   <dd className="mt-2 font-sans text-[27px] font-bold leading-none tracking-[-0.02em] text-[#F4F3EE]">

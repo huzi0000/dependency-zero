@@ -75,7 +75,7 @@ export function NetworkHowItWorks({ registeredNodes }: { registeredNodes: number
                 {step.body}
               </p>
               <span
-                className={`mono-body mt-3 inline-flex min-h-[26px] w-fit items-center gap-1.5 rounded px-2 py-1 text-[10.5px] whitespace-nowrap ${
+                className={`mono-body mt-3 inline-flex min-h-[26px] w-fit items-center gap-1.5 rounded px-2 py-1 text-[11px] ${
                   step.ready
                     ? "bg-[#E6F3EC] text-[#155534]"
                     : "bg-[#F0EEE6] text-[#62645D]"

@@ -83,14 +83,14 @@ export function KeyThreats({
                     <p className="mt-1 text-[12px] leading-[1.5] text-ink-soft">{f.detail}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <span
-                        className={`mono-label shrink-0 rounded px-2 py-[3px] text-[9.5px] ${SEVERITY_CHIP[f.severity]}`}
+                        className={`mono-label shrink-0 rounded px-2 py-[3px] text-[11px] ${SEVERITY_CHIP[f.severity]}`}
                       >
                         {f.severity}
                       </span>
-                      <span className="mono-label shrink-0 rounded bg-[#F0EEE6] px-2 py-[3px] text-[9.5px] text-label">
+                      <span className="mono-label shrink-0 rounded bg-[#F0EEE6] px-2 py-[3px] text-[11px] text-label">
                         {f.confidence} confidence
                       </span>
-                      <span className="mono-label shrink-0 rounded bg-[#F0EEE6] px-2 py-[3px] text-[9.5px] text-label">
+                      <span className="mono-label shrink-0 rounded bg-[#F0EEE6] px-2 py-[3px] text-[11px] text-label">
                         {f.kind}
                       </span>
                     </div>
@@ -99,7 +99,7 @@ export function KeyThreats({
                       <ul className="mt-2.5 flex flex-col gap-1.5">
                         {f.evidence.map((e, j) => (
                           <li key={j}>
-                            <p className="mono-body text-[10.5px] text-label">
+                            <p className="mono-body text-[11px] text-label">
                               {e.file}
                               {e.line ? `:${e.line}` : ""}
                             </p>
@@ -112,7 +112,7 @@ export function KeyThreats({
                     ) : null}
 
                     {f.source ? (
-                      <p className="mono-body mt-2 text-[10.5px] text-label">
+                      <p className="mono-body mt-2 text-[11px] text-label">
                         source: {f.source.name}
                         {f.source.id ? ` ${f.source.id}` : ""}
                         {f.source.url ? (
@@ -122,7 +122,7 @@ export function KeyThreats({
                               href={f.source.url}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="underline underline-offset-2 hover:text-ink"
+                              className="dz-tap underline underline-offset-2 hover:text-ink"
                             >
                               advisory
                             </a>
@@ -148,7 +148,7 @@ export function KeyThreats({
                     {f.detail}
                   </span>
                 </span>
-                <span className={`mono-label shrink-0 rounded px-2 py-[3px] text-[9.5px] ${SEVERITY_CHIP[f.severity]}`}>
+                <span className={`mono-label shrink-0 rounded px-2 py-[3px] text-[11px] ${SEVERITY_CHIP[f.severity]}`}>
                   {f.severity}
                 </span>
               </div>

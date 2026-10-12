@@ -96,7 +96,7 @@ function ScannerNodesTable({ data }: { data: NetworkData }) {
           {nodes.map((node) => (
             <tr key={node.id} className="dz-row">
               <td className="px-4 py-3">
-                <Link href="/scan" className="text-[12.5px] text-ink hover:underline">
+                <Link href="/scan" className="dz-tap dz-tap-x text-[12.5px] text-ink hover:underline">
                   {node.name}
                 </Link>
               </td>
@@ -190,7 +190,7 @@ function ConsensusCard({ data }: { data: NetworkData }) {
               {resolved.slice(0, 10).map((s) => (
                 <tr key={s.id} className="dz-row">
                   <td className="px-4 py-3">
-                    <Link href={`/scan/${s.id}`} className="mono-body text-[12.5px] text-ink hover:underline">
+                    <Link href={`/scan/${s.id}`} className="dz-tap dz-tap-x mono-body text-[12.5px] text-ink hover:underline">
                       {s.packageName}
                     </Link>
                   </td>
@@ -348,7 +348,7 @@ export function NetworkView({ data }: { data: NetworkData }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
           <div className="flex items-center gap-2.5 rounded-[8px] border border-line-soft bg-white px-3.5 py-2.5">
             <span
               aria-hidden="true"

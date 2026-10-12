@@ -63,8 +63,14 @@ function StepCard({ step }: { step: (typeof STEPS)[number] }) {
   return (
     <article className="relative flex h-full w-full flex-1 flex-col rounded-[8px] border border-line-soft bg-surface p-6 lg:min-h-[404px] lg:p-7">
       {/* Top: number + heading + description, diagram alongside ------------- */}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
+      {/* Side-by-side from `sm` up, unchanged. Below `sm` the 132px diagram was
+          taking 57% of a 232px inner column, squeezing the heading and body
+          into ~88px — the step read as a diagram with a caption crammed
+          beside it rather than a step with an illustration. On a phone the
+          diagram now spans the full card and the copy sits under it at full
+          width, which also drops the card height noticeably. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
+        <div className="order-2 min-w-0 flex-1 sm:order-1">
           <p className="mono-body text-[15px] leading-none font-medium text-clay">
             {number}
           </p>
@@ -76,7 +82,7 @@ function StepCard({ step }: { step: (typeof STEPS)[number] }) {
           </p>
         </div>
 
-        <div className="pointer-events-none mt-1 h-[104px] w-[132px] shrink-0 sm:h-[118px] sm:w-[150px]">
+        <div className="order-1 pointer-events-none h-[96px] w-full shrink-0 sm:order-2 sm:mt-1 sm:h-[118px] sm:w-[150px]">
           <Diagram />
         </div>
       </div>
@@ -84,11 +90,11 @@ function StepCard({ step }: { step: (typeof STEPS)[number] }) {
       {/* Bottom: terminal / status panel ------------------------------------ */}
       <div className="mt-6 rounded-[6px] bg-[#F0ECE4] px-4 pt-4 pb-4 lg:mt-auto">
         <div className="mb-2.5 flex items-center justify-between gap-2">
-          <span className="mono-label text-[9px] text-faint">Console</span>
+          <span className="mono-label text-[10.5px] text-label">Console</span>
           {/* Raised from `text-faint` (~2.2:1) to `text-label`. This is the only
               disclosure that the console output below is illustrative, and it
               must be legible enough to do its job. */}
-          <span className="mono-label text-[9.5px] text-label">{"// illustrative output"}</span>
+          <span className="mono-label text-[10.5px] text-label">{"// illustrative output"}</span>
         </div>
         <ul className="space-y-[6px]">
           {terminal.map((line) => (

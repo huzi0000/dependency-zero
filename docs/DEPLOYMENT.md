@@ -9,7 +9,8 @@ It is **not production-hardened.** This document says exactly what that means.
 
 ## 1. Requirements
 
-- Node 20 or newer
+- Node 22.6 or newer — `npm run d0`, `npm run d0-verify` and `npm test` all use
+  `node --experimental-strip-types`, which does not exist before 22.6
 - A writable, **persistent** directory
 - Optional: a Solana Devnet RPC provider
 

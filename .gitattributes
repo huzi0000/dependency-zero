@@ -1,0 +1,53 @@
+# Line-ending policy for new and future commits.
+#
+# This repository's existing files are stored with CRLF. Git does not translate
+# them retroactively, and this file deliberately does NOT force `eol=lf` on
+# source types: doing so would mark all 144 committed text files for
+# renormalisation and produce a whole-repository diff in one commit, burying the
+# real V1 changes.
+#
+# What this file does instead:
+#   * keep Git's automatic text/binary detection, so new files are normalised to
+#     LF in the object database regardless of the contributor's platform;
+#   * mark binaries explicitly, so they can never be line-ending translated or
+#     diffed as text;
+#   * fix LF for the files this repository actually creates without CRLF, which
+#     are not committed here (see the note on lockfiles below).
+#
+# If a future change wants to move the whole repository to LF, do it as its own
+# dedicated commit with `git add --renormalize .`, never mixed into a release.
+
+* text=auto
+
+# ---- binary: never translated, never diffed as text ----
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary
+*.mp4     binary
+*.woff    binary
+*.woff2   binary
+*.ttf     binary
+*.eot     binary
+*.pdf     binary
+*.gz      binary
+*.tgz     binary
+*.zip     binary
+*.wasm    binary
+
+# ---- shell / build tooling: LF, so they stay executable on POSIX ----
+*.sh      text eol=lf
+*.bash    text eol=lf
+Dockerfile text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+
+# ---- Windows scripts: CRLF, so cmd/PowerShell run them unmodified ----
+*.ps1     text eol=crlf
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+
+# ---- lockfile: LF, and never mass-rewritten ----
+package-lock.json text eol=lf -diff

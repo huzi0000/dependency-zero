@@ -35,7 +35,7 @@ export function ProblemSection() {
             <p className="eyebrow">The problem</p>
             <h2
               id="problem-heading"
-              className="serif-display mt-7 text-[clamp(2.6rem,5.9vw,5.1rem)] text-ink"
+              className="serif-display mt-7 text-[clamp(2.6rem,5.9vw,5.1rem)] italic text-ink"
             >
               Dependencies
               <br />

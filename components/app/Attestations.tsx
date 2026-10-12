@@ -98,7 +98,7 @@ export function AttestationsTable({ attestations }: { attestations: Attestation[
         {attestations.length > 0 ? (
           <Link
             href="/network"
-            className="inline-flex items-center gap-1 text-[12.5px] font-medium text-label transition-colors hover:text-ink"
+            className="dz-tap inline-flex items-center gap-1 text-[12.5px] font-medium text-label transition-colors hover:text-ink"
           >
             View all
             <span aria-hidden="true">→</span>
@@ -137,12 +137,12 @@ export function AttestationsTable({ attestations }: { attestations: Attestation[
                     <td className="px-4 py-3">
                       {meta ? (
                         <span
-                          className={`mono-label inline-flex rounded px-2 py-1 text-[9.5px] ${meta.chip}`}
+                          className={`mono-label inline-flex rounded px-2 py-1 text-[11px] ${meta.chip}`}
                         >
                           {meta.label === "ALLOW" ? "Allow" : meta.label === "BLOCK" ? "Block" : "Warn"}
                         </span>
                       ) : (
-                        <span className="mono-label inline-flex rounded bg-[#EFEDE4] px-2 py-1 text-[9.5px] text-label">
+                        <span className="mono-label inline-flex rounded bg-[#EFEDE4] px-2 py-1 text-[11px] text-label">
                           {row.verdict}
                         </span>
                       )}
@@ -165,7 +165,7 @@ export function AttestationsTable({ attestations }: { attestations: Attestation[
                             href={explorerTxUrl(row.signature)}
                             target="_blank"
                             rel="noreferrer noopener"
-                            className="mono-body inline-flex items-center gap-1 text-[12.5px] text-label underline-offset-4 hover:text-ink hover:underline"
+                            className="dz-tap mono-body inline-flex items-center gap-1 text-[12.5px] text-label underline-offset-4 hover:text-ink hover:underline"
                           >
                             {truncateSignature(row.signature)}
                             <ArrowUpRight aria-hidden="true" strokeWidth={1.8} className="size-3" />

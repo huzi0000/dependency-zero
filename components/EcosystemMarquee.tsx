@@ -19,7 +19,7 @@ export function EcosystemMarquee() {
           <span aria-hidden="true" className="h-px flex-1 bg-line-soft" />
           <h2
             id="ecosystem-heading"
-            className="mono-label shrink-0 text-center text-[11px] text-ink sm:text-[11.5px]"
+            className="mono-label min-w-0 text-center text-[11px] text-ink [letter-spacing:0.12em] sm:text-[11.5px] sm:[letter-spacing:0.16em]"
           >
             Built for the Solana ecosystem
           </h2>

@@ -151,7 +151,10 @@ function ScanProgress({ scanId }: { scanId: string }) {
           </div>
         </div>
         <Link href={`/scan/${scan.id}`} className="dz-btn-primary shrink-0">
-          View Threat Report
+          {/* Relabelled rather than hidden. The link is useful while a scan runs,
+              but it read "View Threat Report" while the same card said
+              "Scanning package..." -- two contradictory claims at once. */}
+          {done ? "View Threat Report" : "View scan progress"}
           <ArrowUpRight aria-hidden="true" strokeWidth={2} className="size-4" />
         </Link>
       </div>
@@ -161,21 +164,21 @@ function ScanProgress({ scanId }: { scanId: string }) {
 function VerdictPill({ status }: { status: ScanStatus }) {
   if (status === "pending") {
     return (
-      <span className={`mono-label inline-flex rounded px-2 py-[3px] text-[9.5px] ${PENDING_CHIP}`}>
+      <span className={`mono-label inline-flex rounded px-2 py-[3px] text-[11px] ${PENDING_CHIP}`}>
         PENDING
       </span>
     );
   }
   if (status === "error") {
     return (
-      <span className="mono-label inline-flex rounded bg-[#F0EEE6] px-2 py-[3px] text-[9.5px] text-label">
+      <span className="mono-label inline-flex rounded bg-[#F0EEE6] px-2 py-[3px] text-[11px] text-label">
         ERROR
       </span>
     );
   }
   const meta = VERDICT_META[status];
   return (
-    <span className={`mono-label inline-flex rounded px-2 py-[3px] text-[9.5px] ${meta.chip}`}>
+    <span className={`mono-label inline-flex rounded px-2 py-[3px] text-[11px] ${meta.chip}`}>
       {meta.label}
     </span>
   );
@@ -337,7 +340,7 @@ export function ScanConsole({
                         <td className="px-4 py-3">
                           <Link
                             href={`/scan/${scan.id}`}
-                            className="flex items-center gap-2.5 text-ink"
+                            className="dz-tap dz-tap-x flex items-center gap-2.5 text-ink"
                           >
                             <RowIcon status={scan.status} />
                             <span className="mono-body truncate text-[12.5px]">
@@ -350,7 +353,7 @@ export function ScanConsole({
                         </td>
                         <td className="px-4 py-3">
                           {isInFlight(scan) ? (
-                            <span className="mono-label inline-flex items-center gap-1.5 rounded bg-[#EFEDE4] px-2 py-[3px] text-[9.5px] text-[#6A6C65]">
+                            <span className="mono-label inline-flex items-center gap-1.5 rounded bg-[#EFEDE4] px-2 py-[3px] text-[11px] text-[#6A6C65]">
                               <Loader2 aria-hidden="true" strokeWidth={2.5} className="size-2.5 animate-spin" />
                               {scan.phase === "scanning" ? "SCANNING" : "QUEUED"}
                             </span>

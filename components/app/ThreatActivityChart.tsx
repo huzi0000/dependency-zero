@@ -9,8 +9,16 @@ const TONE = {
   blocked: { fill: "#E24E40", label: "Blocked" },
 } as const;
 
-/** Clearance in px needed between two adjacent x-axis labels. */
-const LABEL_PX = 62;
+/**
+ * Clearance in px needed between two adjacent x-axis labels.
+ *
+ * Sized for the 11px label face below. Axis type was raised from 9px/9.5px
+ * because the SVG scales with its viewBox: at a 320px viewport the chart
+ * rendered at 0.907 scale, so a 9.5px label landed at ~8.6px on screen. The
+ * spacing budget moved with the type so labels stay separated rather than
+ * colliding as they widen.
+ */
+const LABEL_PX = 72;
 
 /**
  * Stacked activity chart drawn from real scan buckets.
@@ -69,9 +77,9 @@ export function ThreatActivityChart({ metrics }: { metrics: Metrics }) {
   const active = hover ?? lastActive;
 
   // Adjacent shown labels sit `labelStride` buckets apart, so their centre-to-
-  // centre gap is `labelStride * slot`. A 9.5px mono time label is ~30px wide
-  // and the end labels are anchored rather than centred, so allow 48px of
-  // clearance. As the chart narrows this naturally draws fewer labels.
+  // centre gap is `labelStride * slot`. See `LABEL_PX` for why the budget is
+  // 72px rather than the ~30px an 11px mono time label actually occupies.
+  // As the chart narrows this naturally draws fewer labels.
   const labelStride = Math.max(1, Math.ceil(LABEL_PX / slot));
 
   return (
@@ -133,7 +141,7 @@ export function ThreatActivityChart({ metrics }: { metrics: Metrics }) {
                     x={padL - 6}
                     y={y + 3}
                     textAnchor="end"
-                    fontSize="9"
+                    fontSize="11"
                     fill="#62645D"
                     fontFamily="var(--font-ibm-plex-mono)"
                   >
@@ -227,7 +235,7 @@ export function ThreatActivityChart({ metrics }: { metrics: Metrics }) {
                     x={anchor === "start" ? padL : anchor === "end" ? W - padR : centre}
                     y={padT + plotH + 12}
                     textAnchor={anchor}
-                    fontSize="9.5"
+                    fontSize="11"
                     fill="#62645D"
                     fontFamily="var(--font-ibm-plex-mono)"
                   >

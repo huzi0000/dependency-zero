@@ -11,6 +11,10 @@ dist/
 .env
 .env.*
 !.env.example
+# Also catch a copy named by the operator rather than by the toolchain
+# (prod.env, secrets.env, dev.env). `.env*` alone would not match those.
+*.env
+!.env.example
 *.pem
 *.key
 *.p12
@@ -54,13 +58,12 @@ Thumbs.db
 .netlify/
 next-env.d.ts
 
-# local QA artifacts
-qa/shots/
-qa/*.png
-# Ad-hoc QA scratch scripts (temporary reporters, demos, probes).
-# Real automated suites live in tests/ and are always tracked.
-qa/_*.mjs
-qa/_*.ts
-
-# Exported proof bundles and scratch attestations: real scan data, not source.
-qa/bundles/
+# qa/ — browser probes, screenshots, exported proof bundles and scratch
+# attestations. None of it is part of the build. The maintained automated suite
+# lives in tests/ and is always tracked.
+#
+# `qa/*` (not `qa/`): excluding the directory itself stops git descending into
+# it, and a `!` rule for a child can then never re-include anything. Matching
+# the contents leaves the folder itself traversable so the exception works.
+qa/*
+!qa/.gitkeep

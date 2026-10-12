@@ -23,11 +23,15 @@ function Sparkline({
   const barW = Math.max(1.5, step - 1.5);
 
   return (
+    /* No fixed pixel width on the <svg>: the dashboard grid drops to two
+       columns on a phone, where a card's inner box is ~86px. A fixed 112px
+       sparkline marked `shrink-0` would have been forced past the edge of the
+       card and overlapped the neighbouring one. Intrinsic ratio plus a max
+       width lets it scale down instead of overflowing. */
     <svg
-      width={w}
-      height={h}
       viewBox={`0 0 ${w} ${h}`}
-      className="shrink-0"
+      className="h-auto w-full max-w-[112px] shrink"
+      preserveAspectRatio="xMidYMax meet"
       aria-hidden="true"
     >
       {values.map((v, i) => {
@@ -90,16 +94,16 @@ export function MetricCard({
   const DeltaIcon = (delta ?? 0) >= 0 ? ArrowUpRight : ArrowDownRight;
 
   return (
-    <div className={`dz-card flex flex-col justify-between gap-4 p-4 ${tone === "blocked" ? "dz-card-alert" : ""}`}>
+    <div className={`dz-card flex flex-col justify-between gap-3 p-3 sm:gap-4 sm:p-4 ${tone === "blocked" ? "dz-card-alert" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <p className={`dz-overline ${tone === "blocked" ? "text-[#8A2C23]" : ""}`}>
           {label}
         </p>
       </div>
 
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
         <div className="min-w-0 flex-1">
-          <p className="flex items-baseline gap-1 font-sans text-[30px] leading-none font-bold tracking-[-0.03em] text-ink">
+          <p className="flex items-baseline gap-1 font-sans text-[26px] leading-none font-bold tracking-[-0.03em] text-ink sm:text-[30px]">
             {value === null ? (
               <NotEnoughData>{tooltip ?? "Not enough data yet."}</NotEnoughData>
             ) : (

@@ -51,7 +51,7 @@ export function RecentScans({ scans }: { scans: ScanRecord[] }) {
         {scans.length > 0 ? (
           <Link
             href="/scan"
-            className="inline-flex items-center gap-1 text-[12.5px] font-medium text-label transition-colors hover:text-ink"
+            className="dz-tap inline-flex items-center gap-1 text-[12.5px] font-medium text-label transition-colors hover:text-ink"
           >
             View all
             <span aria-hidden="true">→</span>

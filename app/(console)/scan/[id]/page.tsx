@@ -249,7 +249,7 @@ export default async function ScanDetailPage({
       <nav aria-label="Breadcrumb" className="mb-4">
         <ol className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
           <li>
-            <Link href="/scan" className="text-label transition-colors hover:text-ink">
+            <Link href="/scan" className="dz-tap text-label transition-colors hover:text-ink">
               Scan
             </Link>
           </li>
@@ -302,7 +302,12 @@ export default async function ScanDetailPage({
           </div>
           <div>
             <p className="dz-overline">Scanned</p>
-            <p className="mt-1.5 text-[12.5px] text-ink">{scanDate}</p>
+            {/* `whitespace-nowrap` because the formatted date is ~143px at 12.5px and
+                  the column it sits in is roughly a third of the card on a phone,
+                  so it was breaking between the time and the "ago" line. The
+                  header row is `flex-wrap`, so the block simply takes the width
+                  it needs and the row reflows. */}
+            <p className="mt-1.5 text-[12.5px] whitespace-nowrap text-ink">{scanDate}</p>
             <TimeAgo
               iso={scan.createdAt}
               className="mono-body mt-0.5 block text-[12px] text-label"
@@ -363,15 +368,35 @@ export default async function ScanDetailPage({
         {/* ------------------------------------------------------- left column */}
         <div className="flex min-w-0 flex-col gap-4">
           {/* Verdict hero */}
+          {/*
+              The dial and the verdict used to sit side by side at every width.
+              The card is `flex-wrap`, so the text column — `min-w-0 flex-1` —
+              was allowed to shrink below the width of the word it contained.
+              Measured on a real REVIEW report: at 320px the column collapsed to
+              0px and "REVIEW" wrapped onto six lines; "BLOCKED" took seven.
+              `min-w-0` is what permitted the shrink, and a block heading wraps
+              rather than overflowing, so the word broke instead of escaping.
+
+              Two changes, both local to this card:
+              1. The dial stacks above the copy below `sm`, so the verdict gets
+                 the full card width on a phone instead of whatever is left
+                 after a 92px dial and a 24px gap.
+              2. `whitespace-nowrap` on the heading, with the size clamped so
+                 even the longest real label ("BLOCKED") cannot outgrow the
+                 narrowest supported card.
+            */}
           <section
-            className={`dz-card flex flex-wrap items-center gap-6 p-5 ${
+            className={`dz-card flex flex-col gap-4 p-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6 ${
               scan.status === "block" ? "dz-card-alert" : ""
             }`}
             aria-labelledby="verdict-heading"
           >
             <RiskDial tone={tone} score={riskScore} />
             <div className="min-w-0 flex-1">
-              <h2 id="verdict-heading" className={`text-[32px] leading-none font-bold ${verdict.tone}`}>
+              <h2
+                id="verdict-heading"
+                className={`whitespace-nowrap text-[clamp(1.6rem,7vw,2rem)] leading-none font-bold ${verdict.tone}`}
+              >
                 {verdict.label}
               </h2>
               <p className="mono-body mt-2 text-[13px] text-ink">{coordinate}</p>
@@ -536,7 +561,7 @@ export default async function ScanDetailPage({
                       href={attestation.explorerUrl ?? explorerTxUrl(attestation.transactionSignature)}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="underline underline-offset-4 hover:text-[#155534]"
+                      className="dz-tap underline underline-offset-4 hover:text-[#155534]"
                     >
                       {attestation.transactionSignature.slice(0, 4)}…
                       {attestation.transactionSignature.slice(-4)}
@@ -630,7 +655,7 @@ export default async function ScanDetailPage({
                     href={repositoryUrl(result.metadata.repository) ?? undefined}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="underline underline-offset-4 hover:text-[#155534]"
+                    className="dz-tap break-all underline underline-offset-4 hover:text-[#155534]"
                   >
                     {result.metadata.repository.replace(/^git\+/, "")}
                   </a>

@@ -53,7 +53,7 @@ export function Footer() {
                   <Link
                     href={link.href}
                     prefetch={false}
-                    className="rounded-[4px] text-[14px] text-ink-soft transition-colors duration-200 hover:text-ink"
+                    className="dz-tap rounded-[4px] text-[14px] text-ink-soft transition-colors duration-200 hover:text-ink"
                   >
                     {link.label}
                   </Link>
@@ -80,7 +80,11 @@ export function Footer() {
           </ul>
 
           {/* Copyright ------------------------------------------------- */}
-          <p className="mono-body text-[12px] whitespace-nowrap text-label">
+          {/* `whitespace-nowrap` was here and forced a 302px line inside a ~278px
+             content column at phone width, pushing the footer's scroll width
+             past the viewport. It is a sentence, not a label, so it is allowed
+             to wrap. */}
+          <p className="mono-body text-[12px] text-label">
             © {new Date().getFullYear()} Dependency Zero. Built on Solana.
           </p>
         </div>

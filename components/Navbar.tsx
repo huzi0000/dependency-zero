@@ -106,7 +106,7 @@ export function Navbar() {
             <li key={link.label}>
               <Link
                 href={link.href}
-                className="rounded-[4px] text-[14px] font-medium text-ink-soft transition-colors duration-200 hover:text-ink"
+                className="dz-tap rounded-[4px] text-[14px] font-medium text-ink-soft transition-colors duration-200 hover:text-ink"
                prefetch={false}>
                 {link.label}
               </Link>

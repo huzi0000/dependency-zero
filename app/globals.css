@@ -75,7 +75,14 @@
     font-synthesis-weight: none;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow-x: clip;
+    /* Deliberately NOT `overflow-x: clip | hidden`.
+       That declaration silently swallows any element wider than the viewport:
+       no scrollbar appears, `scrollWidth <= innerWidth` still reports clean,
+       and the content is simply unreachable. Several reported defects (the
+       /network Registry tab at 360px, the hero metric band) were invisible
+       for exactly that reason. Real overflow is now allowed to surface and
+       is fixed at the component that causes it instead of being masked at
+       the root. Individual scroll regions use `.dz-scroll`. */
   }
 
   ::selection {
@@ -430,6 +437,11 @@
   }
 
   /* ---- Underline tab bar (Scanner / Threat Report / Network) ----------- */
+  /* The scrollbar used to be hidden outright (`scrollbar-width: none` +
+     `::-webkit-scrollbar { display: none }`). On a five-tab report at phone
+     width "On-chain Proof" was simply unreachable with no hint that the row
+     moved at all. The bar now keeps a thin, muted scrollbar as a permanent
+     affordance and drops to a tighter gap below `sm`. */
   .dz-tabs {
     display: flex;
     align-items: stretch;
@@ -438,14 +450,30 @@
     max-width: 100%;
     min-width: 0;
     overflow-x: auto;
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+    scroll-padding-inline: 2px;
+    scroll-snap-type: inline proximity;
   }
   .dz-tabs::-webkit-scrollbar {
-    display: none;
+    height: 4px;
+  }
+  .dz-tabs::-webkit-scrollbar-thumb {
+    background-color: var(--color-line);
+    border-radius: 999px;
+  }
+  .dz-tabs::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  @media (max-width: 639px) {
+    .dz-tabs {
+      gap: 0.875rem;
+    }
   }
   .dz-tab {
     position: relative;
     white-space: nowrap;
+    scroll-snap-align: start;
     padding: 0.7rem 0 0.75rem;
     font-size: 0.875rem;
     font-weight: 500;
@@ -466,6 +494,67 @@
     bottom: -1px;
     height: 2px;
     background-color: var(--color-ink);
+  }
+
+  /* ---- Tap-target expansion -------------------------------------------- */
+  /* Small text links and chips measured 14-20px tall on touch viewports,
+     below the 24px WCAG 2.5.8 floor and far below the 44px ideal. Enlarging
+     the font or the icon would change the visual rhythm of every table row.
+     These utilities instead grow the *hit area* only: block padding is added
+     and cancelled by an equal negative block margin, so the painted box, the
+     row height and the surrounding gaps are byte-for-byte identical while
+     the tappable region roughly doubles. Hit areas stay inside their own row,
+     so adjacent targets are not overlapped. */
+  .dz-tap {
+    padding-block: 7px;
+    margin-block: -7px;
+  }
+  /* Half-width twin of `.dz-tap`. A short package name ("zod") measured 22px
+     wide — under the 24px WCAG 2.5.8 floor — purely because the word is
+     short, and no amount of font sizing fixes a three-letter label. Four
+     pixels of inline padding is cancelled by four pixels of negative inline
+     margin, so the label keeps its exact position and nothing beside it is
+     displaced: the hit area grows, the layout does not. */
+  .dz-tap-x {
+    padding-inline: 4px;
+    margin-inline: -4px;
+  }
+  .dz-tap-lg {
+    padding-block: 12px;
+    margin-block: -12px;
+  }
+  /* For icon buttons that already have a fixed square size (`size-6`), where
+     padding is absorbed by `box-sizing` and cannot grow the box. A transparent
+     pseudo-element extends the clickable region instead, leaving the painted
+     box and the row layout untouched. */
+  .dz-hit {
+    position: relative;
+  }
+  .dz-hit::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+  }
+
+  /* ---- Scroll affordance for tab bars ---------------------------------- */
+  /* Flat rules and a hairline chevron. No fade masks: this build is strictly
+     gradient-free, so "there is more to the right" is shown with a solid edge
+     and a drawn arrow rather than a soft fade. */
+  .dz-tabs-cue {
+    width: 14px;
+    background-color: var(--color-bone);
+    border-left: 1px solid var(--color-line-soft);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 1px;
+  }
+  .dz-tabs-cue-end {
+    border-left: 0;
+    border-right: 1px solid var(--color-line-soft);
+    justify-content: flex-end;
+    padding-right: 1px;
+    padding-left: 0;
   }
 
   /* ---- Form field ------------------------------------------------------ */

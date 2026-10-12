@@ -139,7 +139,7 @@ export function WalletChip() {
               <p className="text-[13px] font-semibold text-ink">Connected</p>
             </div>
 
-            <p className="mono-label mt-2.5 text-[9.5px] text-label">{connected.walletName}</p>
+            <p className="mono-label mt-2.5 text-[10.5px] text-label">{connected.walletName}</p>
             <p className="mono-body mt-1.5 text-[12px] break-all text-ink">{connected.address}</p>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -155,7 +155,7 @@ export function WalletChip() {
                 </p>
               )}
               {connected.chains.length > 0 ? (
-                <p className="mono-label text-[9px] text-label">
+                <p className="mono-label text-[10.5px] text-label">
                   {connected.chains.map(chainLabel).join(" · ")}
                 </p>
               ) : null}

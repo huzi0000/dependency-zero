@@ -33,7 +33,7 @@ export function StatusChip({ status }: { status: ScanStatus }) {
   if (status === "pending") {
     return (
       <span
-        className={`mono-label inline-flex items-center rounded px-2 py-1 text-[9.5px] ${PENDING_CHIP}`}
+        className={`mono-label inline-flex items-center rounded px-2 py-1 text-[11px] ${PENDING_CHIP}`}
       >
         PENDING
       </span>
@@ -41,7 +41,7 @@ export function StatusChip({ status }: { status: ScanStatus }) {
   }
   if (status === "error") {
     return (
-      <span className="mono-label inline-flex items-center rounded bg-[#F0EEE6] px-2 py-1 text-[9.5px] text-label">
+      <span className="mono-label inline-flex items-center rounded bg-[#F0EEE6] px-2 py-1 text-[11px] text-label">
         ERROR
       </span>
     );
@@ -49,7 +49,7 @@ export function StatusChip({ status }: { status: ScanStatus }) {
   const meta = VERDICT_META[status];
   return (
     <span
-      className={`mono-label inline-flex items-center rounded px-2 py-1 text-[9.5px] ${meta.chip}`}
+      className={`mono-label inline-flex items-center rounded px-2 py-1 text-[11px] ${meta.chip}`}
     >
       {meta.label}
     </span>

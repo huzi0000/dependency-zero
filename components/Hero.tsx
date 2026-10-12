@@ -13,12 +13,39 @@ import { TagCallout } from "@/components/ui/Callout";
  * statements of what the product actually does, with the illustrative-value
  * disclosure rendered beneath. Real per-deployment counts live in the console
  * dashboard, computed from the scan store.
+ *
+ * They were then reworded again: the bare tokens `npm / OSV / Ed25519 /
+ * Devnet` were implementation names, not user-facing explanations, and read
+ * as jargon to anyone who had not already met the product. Each entry now
+ * leads with a plain-language benefit and keeps the implementation name as
+ * secondary detail underneath, so the technical vocabulary is still present
+ * but no longer carries the message.
  */
-const HERO_METRICS = [
-  { value: "npm", label: "Published tarball inspected" },
-  { value: "OSV", label: "Advisory lookup" },
-  { value: "Ed25519", label: "Signed findings" },
-  { value: "Devnet", label: "Optional anchoring" },
+const HERO_CAPABILITIES = [
+  {
+    n: "01",
+    title: "Package security",
+    detail: "Scan packages before installing.",
+    tech: "npm registry + published tarball",
+  },
+  {
+    n: "02",
+    title: "Known vulnerabilities",
+    detail: "Check published security advisories.",
+    tech: "OSV advisory data",
+  },
+  {
+    n: "03",
+    title: "Signed evidence",
+    detail: "Digitally signed scan findings.",
+    tech: "Ed25519, three local roles",
+  },
+  {
+    n: "04",
+    title: "Solana proof",
+    detail: "Optional on-chain verification.",
+    tech: "Devnet — never required to scan",
+  },
 ];
 
 const HERO_STAGES = [
@@ -63,7 +90,14 @@ export function Hero() {
 
   return (
     <section className="page-shell pt-5 lg:pt-8" aria-labelledby="hero-heading">
-      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1fr)]">
+      {/* The copy column is deliberately given a touch more than half the
+          split. At 0.92fr the measured column fell to ~444px on a 1024px
+          viewport while the metric band inside it was pinned at a fixed
+          748px, so the band painted over the artwork (the column carries
+          z-10). Sizing the column from the content instead of a fixed width
+          is what removes the overlap; the ratio is only enough to keep
+          "TRUST." from wrapping at intermediate widths. */}
+      <div className="grid grid-cols-1 items-start gap-x-8 gap-y-10 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,1fr)] lg:gap-y-12">
         {/* ---------------------------------------------------------------- */}
         {/* Copy column                                                      */}
         {/* ---------------------------------------------------------------- */}
@@ -71,12 +105,12 @@ export function Hero() {
           <p className="eyebrow">Security layer for autonomous agents</p>
 
           <h1 id="hero-heading" className="mt-6 lg:mt-7">
-            <span className="block font-sans text-[clamp(3.25rem,9.4vw,8.5rem)] font-bold leading-[0.84] tracking-[-0.035em] text-ink">
+            <span className="block font-sans text-[clamp(3rem,8.4vw,8rem)] font-bold leading-[0.86] tracking-[-0.035em] text-ink">
               ZERO
               <br />
               TRUST.
             </span>
-            <span className="mt-1 block font-serif text-[clamp(2rem,6.1vw,5.65rem)] italic leading-[1.05] tracking-[-0.01em] text-ink">
+            <span className="mt-1 block font-serif text-[clamp(1.85rem,5.4vw,5.1rem)] italic leading-[1.05] tracking-[-0.01em] text-ink">
               Before Execution.
             </span>
           </h1>
@@ -98,23 +132,36 @@ export function Hero() {
             </ActionLink>
           </div>
 
-          <dl className="mt-12 flex flex-wrap gap-x-10 gap-y-7 lg:w-[748px] lg:flex-nowrap lg:gap-x-[70px]">
-            {HERO_METRICS.map((metric) => (
-              <div
-                key={metric.label}
-                className="flex flex-col-reverse gap-2.5"
+          {/* Previously a fixed `lg:w-[748px]` flex row with `whitespace-nowrap`
+              labels. Inside a fluid grid column that width exceeded the column
+              from 1024px to roughly 1700px, and the column's `z-10` made the
+              overflow paint on top of the illustration. This is a fluid 2-up
+              grid instead: it cannot exceed its own column at any width, and
+              it keeps the two-column editorial band instead of a four-up row
+              that would have been ~130px per cell on a laptop. */}
+          <ul className="mt-10 grid list-none grid-cols-2 gap-x-5 gap-y-6 sm:gap-x-8 lg:mt-11">
+            {HERO_CAPABILITIES.map((item) => (
+              <li
+                key={item.n}
+                className="flex min-w-0 flex-col gap-1.5 border-t border-line-soft pt-3"
               >
-                <dt className="mono-label text-[11px] leading-none whitespace-nowrap text-label">
-                  {metric.label}
-                </dt>
-                <dd className="font-sans text-[44px] leading-none tracking-[-0.03em] text-ink">
-                  {metric.value}
-                </dd>
-              </div>
+                <span className="font-sans text-[30px] leading-none tracking-[-0.03em] text-ink sm:text-[34px]">
+                  {item.n}
+                </span>
+                <span className="mono-label text-[10.5px] leading-[1.35] text-label">
+                  {item.title}
+                </span>
+                <span className="mono-body text-[12.5px] leading-[1.5] text-ink-soft">
+                  {item.detail}
+                </span>
+                <span className="mono-body text-[10.5px] leading-[1.45] text-line">
+                  {item.tech}
+                </span>
+              </li>
             ))}
-          </dl>
-          <p className="mono-body mt-4 text-[11px] tracking-[0.02em] text-label">
-            {"// illustrative product signals · simulated values"}
+          </ul>
+          <p className="mono-body mt-4 text-[11px] leading-[1.5] tracking-[0.02em] text-label">
+            {"// capability summary · live per-deployment counts in the console"}
           </p>
         </div>
 
@@ -123,9 +170,17 @@ export function Hero() {
         {/* ---------------------------------------------------------------- */}
         <div className="relative">
           {/* No opaque plate here: the video is blended straight onto the page
-              bone so the supporting metrics can sit beside the artwork. */}
+              bone so the supporting metrics can sit beside the artwork.
+
+              Aspect ratio is width-led below `lg`, where the artwork has the
+              full column to itself. The source plate is portrait (363:387);
+              at full mobile width that rendered ~768px of near-empty grey
+              above the diagram and pushed the callouts far down the page.
+              Once `lg` splits the hero into two columns the artwork is only
+              ~660px tall and beside the copy, so the portrait ratio is both
+              safe and the better composition there. */}
           <div className="relative overflow-hidden">
-            <div className="relative aspect-[363/387] w-full">
+            <div className="relative aspect-[5/4] w-full sm:aspect-[4/3] lg:aspect-[363/387]">
               {motionAllowed ? (
                 <video
                   className="flat-art absolute inset-0 size-full object-cover object-[62%_50%] xl:object-[70%_50%]"
@@ -150,13 +205,19 @@ export function Hero() {
             </div>
           </div>
 
-          {/* Annotated over the artwork from XL up; stacked beneath it below. */}
-          <ul className="mt-5 flex list-none flex-col gap-4
-                         xl:absolute xl:inset-x-0 xl:top-0 xl:mt-0 xl:h-full">
+          {/* Below `xl` these callouts used to be a plain `mt-5` stack under
+              the artwork, which read as three unrelated cards trailing the
+              image rather than annotations on it. They now share one ruled
+              surface with the artwork — a hairline under the plate, equal
+              columns, matching rhythm — so the group reads as a single
+              diagram. At `xl` and above they return to sitting on the
+              artwork, where the column is wide enough to hold 214px tags
+              beside the diagram without covering its core. */}
+          <ul className="mt-4 grid list-none gap-3 border-t border-line-soft pt-4 sm:grid-cols-3 sm:gap-x-4 xl:absolute xl:inset-x-0 xl:top-0 xl:mt-0 xl:h-full xl:border-0 xl:pt-0">
             {HERO_STAGES.map((stage, index) => (
               <li
                 key={stage.label}
-                className={`xl:absolute xl:right-0 ${
+                className={`min-w-0 xl:absolute xl:right-0 ${
                   index === 0
                     ? "xl:top-[5%]"
                     : index === 1
@@ -167,7 +228,7 @@ export function Hero() {
                 <TagCallout
                   label={stage.label}
                   detail={stage.detail}
-                  className="w-[214px] max-w-full"
+                  className="w-full max-w-full xl:w-[214px]"
                 />
               </li>
             ))}

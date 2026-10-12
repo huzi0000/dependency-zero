@@ -146,7 +146,7 @@ export function DashboardView({ initial }: { initial: Payload }) {
 
       <div
         aria-busy={loading || undefined}
-        className={`mt-5 grid gap-3 transition-opacity sm:grid-cols-2 xl:grid-cols-4 ${
+        className={`mt-5 grid grid-cols-2 gap-2.5 transition-opacity sm:gap-3 xl:grid-cols-4 ${
           loading ? "opacity-60" : "opacity-100"
         }`}
       >

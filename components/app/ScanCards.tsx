@@ -180,7 +180,19 @@ export function ScanTabsCard({
 
   return (
     <section className="dz-card overflow-hidden">
-      <PageTabs tabs={TABS} value={tab} onChange={setTab} label="Scan input mode" />
+      {/* The tab bar used to be this card's first child with no padding of its
+          own, so "Single Scan" sat flush against the card's top and left edges
+          while everything below it had `p-4`. The header now shares that
+          inset, with a little extra room above it, so it reads as part of the
+          card rather than as something bleeding off its edges.
+
+          `PageTabs` is deliberately NOT touched: it is shared with the Threat
+          Report and Network pages, and this wrapper keeps the change local to
+          the scanner. The bar's bottom border still lands on the padding box,
+          so the divider now spans the full card width as before. */}
+      <div className="px-4 pt-3">
+        <PageTabs tabs={TABS} value={tab} onChange={setTab} label="Scan input mode" />
+      </div>
 
       <div className="p-4">
         <TabPanel id="single" active={tab === "single"}>
@@ -196,6 +208,12 @@ export function ScanTabsCard({
             <label className="sr-only" htmlFor="dz-scan-input">
               npm package coordinate
             </label>
+            {/* `flex-1` below is scoped to `sm:` on purpose. Under `sm` this form is a
+                COLUMN flex container, so its main axis is vertical and `flex-1`
+                sets `flex-basis: 0%` — which overrides the `height: 2.75rem`
+                declared by `.dz-input` and collapsed the field to about 19px on
+                a phone. From `sm` up the container is a row, `flex-1` grows the
+                width as intended, and the height is left to the stylesheet. */}
             <input
               id="dz-scan-input"
               value={value}
@@ -206,7 +224,7 @@ export function ScanTabsCard({
               placeholder="@unknown/solana-helper@1.4.2"
               autoComplete="off"
               spellCheck={false}
-              className="dz-input mono-body min-w-0 flex-1"
+              className="dz-input mono-body min-w-0 sm:flex-1"
             />
             <button
               type="submit"

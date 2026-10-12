@@ -39,7 +39,7 @@ export function CopyValue({
             /* clipboard blocked — the value stays selectable */
           }
         }}
-        className="inline-flex size-6 shrink-0 items-center justify-center rounded text-label transition-colors hover:bg-[#F0EEE6] hover:text-ink"
+        className="dz-hit inline-flex size-6 shrink-0 items-center justify-center rounded text-label transition-colors hover:bg-[#F0EEE6] hover:text-ink"
       >
         {copied ? (
           <Check aria-hidden="true" strokeWidth={2} className="size-3.5 text-[#155534]" />

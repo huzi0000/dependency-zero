@@ -68,7 +68,7 @@ export function NetworkOverview({ nodes }: { nodes: ScannerNode[] }) {
 
       <Link
         href="/network"
-        className="mt-3 inline-flex w-fit items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+        className="dz-tap mt-3 inline-flex w-fit items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
       >
         View scanner network
         <span aria-hidden="true">→</span>

@@ -12,6 +12,7 @@ import {
   anchorWithWallet,
   reconcile,
   IDLE,
+  type AnchorPhase,
   type AnchorState,
 } from "@/lib/wallet-anchor";
 import { useWalletSession } from "@/lib/wallet-session";
@@ -393,25 +394,25 @@ export function ReportTabs({
                 <p className="dz-overline">Recorded evidence</p>
                 <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
                   <div>
-                    <dt className="mono-label text-[10px] uppercase text-label">Verdict</dt>
+                    <dt className="mono-label text-[11px] uppercase text-label">Verdict</dt>
                     <dd className="mono-body mt-1 text-[12.5px] text-ink">
                       {pending ? "Pending" : scan.status.toUpperCase()}
                     </dd>
                   </div>
                   <div>
-                    <dt className="mono-label text-[10px] uppercase text-label">Risk score</dt>
+                    <dt className="mono-label text-[11px] uppercase text-label">Risk score</dt>
                     <dd className="mono-body mt-1 text-[12.5px] text-ink">
                       {scan.resolution ? `${scan.resolution.riskScore}/100` : "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="mono-label text-[10px] uppercase text-label">Findings</dt>
+                    <dt className="mono-label text-[11px] uppercase text-label">Findings</dt>
                     <dd className="mono-body mt-1 text-[12.5px] text-ink">
                       {scan.resolution ? scan.resolution.findings.length : "—"}
                     </dd>
                   </div>
                   <div>
-                    <dt className="mono-label text-[10px] uppercase text-label">Signed by</dt>
+                    <dt className="mono-label text-[11px] uppercase text-label">Signed by</dt>
                     <dd className="mono-body mt-1 text-[12.5px] text-ink">
                       {consensus ? `${consensus.votes.length} local roles` : "—"}
                     </dd>
@@ -449,6 +450,87 @@ function next0Delay(state: AnchorState): number {
   return state.phase === "confirmed" ? 1200 : 0;
 }
 
+/**
+ * Plain-language framing for the current anchoring state.
+ *
+ * Two gaps this closes. Previously the panel only branched on
+ * `liveConfirmed` vs everything else, so "prepared, awaiting approval",
+ * "submitted, unconfirmed" and "failed before submission" all rendered
+ * identically — a user could not tell whether a transaction had actually
+ * reached the network, which is the difference between retrying safely and
+ * anchoring the same scan twice.
+ *
+ * The wording is also explicit that the scan verdict is untouched by any of
+ * this. Anchoring is optional; a failed anchor is not a failed scan.
+ */
+function anchorGuidance(
+  phase: AnchorPhase,
+  liveConfirmed: boolean,
+): { headline: string; body: string; tone: "ok" | "wait" | "warn" } | null {
+  if (liveConfirmed) {
+    return {
+      headline: "Anchored and verified on Solana Devnet",
+      body:
+        "The commitment was fetched back from the cluster and matched this scan. Anchoring is optional — the signed verdict above is already final and independent of it.",
+      tone: "ok",
+    };
+  }
+  switch (phase) {
+    case "preparing":
+    case "awaiting_wallet":
+      return {
+        headline: "Transaction prepared, awaiting your approval",
+        body:
+          "Nothing has been submitted yet. Approve or dismiss the prompt in your wallet to continue.",
+        tone: "wait",
+      };
+    case "submitting":
+      return {
+        headline: "Submitted to Solana Devnet",
+        body:
+          "Your wallet has sent the transaction and it is not confirmed yet. Do not anchor again — this page reconciles on refresh, and a second attempt could anchor the same scan twice.",
+        tone: "wait",
+      };
+    case "confirming":
+      return {
+        headline: "Transaction sent, confirmation pending",
+        body:
+          "A transaction was submitted. It is being reconciled against Devnet and will resolve on refresh. Anchoring again now risks a duplicate.",
+        tone: "wait",
+      };
+    case "insufficient_funds":
+      return {
+        headline: "No transaction was submitted",
+        body:
+          "Your wallet rejected the request before signing because it does not hold enough Devnet SOL for the fee. The scan verdict is unaffected and is available above. Fund the wallet with test SOL on Devnet, then retry.",
+        tone: "warn",
+      };
+    case "wrong_network":
+      return {
+        headline: "No transaction was submitted",
+        body:
+          "Your wallet is on a different cluster, so it declined to sign. The scan verdict is unaffected. Switch the wallet to Solana Devnet and retry.",
+        tone: "warn",
+      };
+    case "rejected":
+      return {
+        headline: "No transaction was submitted",
+        body:
+          "You dismissed the approval prompt, so nothing was sent. The scan verdict is unaffected and retrying is safe.",
+        tone: "warn",
+      };
+    case "failed":
+      return {
+        headline: "Anchoring did not complete",
+        body:
+          "The scan itself completed and its verdict stands — anchoring is an optional extra step. Confirm whether a transaction was sent before retrying.",
+        tone: "warn",
+      };
+    default:
+      return null;
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* On-chain proof                                                             */
 /* -------------------------------------------------------------------------- */
@@ -476,6 +558,16 @@ function ProofPanel({
 }) {
   const liveConfirmed = anchor.phase === "confirmed" || attestation?.confirmed === true;
   const inFlight = busy || ["preparing", "awaiting_wallet", "submitting", "confirming"].includes(anchor.phase);
+  /* Server-side state counts too: after a reload the anchor state resets to
+     idle while the record still says a transaction is pending. */
+  const serverPending =
+    !liveConfirmed &&
+    Boolean(attestation?.transactionSignature) &&
+    attestation?.status !== "failed";
+  const guidance = anchorGuidance(
+    anchor.phase === "idle" && serverPending ? "confirming" : anchor.phase,
+    liveConfirmed,
+  );
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_400px]">
@@ -533,6 +625,25 @@ function ProofPanel({
           </KvRow>
         </dl>
 
+        {guidance ? (
+          <div
+            className={`mt-3 border-t border-line-soft px-4 pt-3.5 ${
+              guidance.tone === "ok" ? "text-[#155534]" : guidance.tone === "wait" ? "text-[#6B440B]" : "text-[#8A2C23]"
+            }`}
+          >
+            <p className="text-[12.5px] font-bold">
+              {guidance.headline}
+              {guidance.tone === "wait" ? (
+                <span className="mono-label ml-2 inline-flex rounded px-1.5 py-[2px] text-[11px] align-middle text-[#6B440B] ring-1 ring-[#C9A227]">
+                  {inFlight ? "IN PROGRESS" : "PENDING"}
+                </span>
+              ) : null}
+            </p>
+            <p className="mono-body mt-1.5 text-[11.5px] leading-[1.65] text-label">
+              {guidance.body}
+            </p>
+          </div>
+        ) : null}
         {anchor.error ? (
           <p className="mono-body mt-3 px-4 text-[11.5px] leading-[1.6] text-[#6B440B]">{anchor.error}</p>
         ) : null}
