@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { PageTabs, TabPanel, type TabItem } from "@/components/app/PageTabs";
+import { SecurityHistory } from "@/components/app/SecurityHistory";
 import { CodeEvidence, KeyThreats } from "@/components/app/ReportVisuals";
 import { KvRow, Panel } from "@/components/app/Panels";
 import { CopyValue } from "@/components/app/CopyValue";
@@ -18,7 +19,7 @@ import {
 import { useWalletSession } from "@/lib/wallet-session";
 import { chainsOf } from "@/lib/wallet-providers";
 
-type Tab = "overview" | "threats" | "behavior" | "verdicts" | "proof";
+type Tab = "overview" | "threats" | "behavior" | "verdicts" | "proof" | "history";
 
 /** The real signed evidence, shaped for display. Only public data. */
 export interface ReportConsensus {
@@ -161,6 +162,7 @@ export function ReportTabs({
     { id: "behavior", label: "Behavior" },
     { id: "verdicts", label: "Network Verdicts" },
     { id: "proof", label: "On-chain Proof" },
+    { id: "history", label: "Security History" },
   ];
 
   const pending = scan.status === "pending";
@@ -230,7 +232,10 @@ export function ReportTabs({
       <PageTabs
         tabs={tabs}
         value={tab}
-        onChange={setTab}
+        onChange={(next) => {
+          setTab(next);
+          document.getElementById("d0-overview-body")?.toggleAttribute("hidden", next !== "overview");
+        }}
         label="Threat report sections"
         className="mt-6"
       />
@@ -427,6 +432,12 @@ export function ReportTabs({
           </TabPanel>
 
           {/* --------------------------------------------------- on-chain proof */}
+          <TabPanel id="history" active={tab === "history"}>
+            {tab === "history" && (
+              <SecurityHistory packageName={scan.packageName} />
+            )}
+          </TabPanel>
+
           <TabPanel id="proof" active={tab === "proof"}>
             <ProofPanel
               scan={scan}

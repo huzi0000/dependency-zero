@@ -364,7 +364,7 @@ export default async function ScanDetailPage({
       />
 
       {/* -------------------------------------------------------------- body */}
-      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+      <div id="d0-overview-body" className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
         {/* ------------------------------------------------------- left column */}
         <div className="flex min-w-0 flex-col gap-4">
           {/* Verdict hero */}

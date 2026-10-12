@@ -3,11 +3,7 @@ import "server-only";
 import { attestationCommitment, memoPayload, scannersCommitment } from "./canonical.ts";
 import { computeConsensus, CONSENSUS_POLICY_VERSION } from "./consensus.ts";
 import {
-  anchorCommitment,
-  connect,
   idempotencyKeyFor,
-  resolveSigner,
-  verifyOnChain,
   type AttestationRecord,
   type ChainVerification,
 } from "./solana.ts";
@@ -115,44 +111,21 @@ export async function runAttestation(params: {
 
   const idem = idempotencyKeyFor(params.scanId, commitment);
 
-  // 5. Attempt a real Devnet anchor, unless explicitly offline.
+  // 5. Generate an unsigned proof. On-chain anchoring requires wallet approval.
   let attestation: AttestationRecord;
-  let chainVerification: ChainVerification | null = null;
-  let anchorBlockedReason: string | null = null;
+  const chainVerification: ChainVerification | null = null;
+  const anchorBlockedReason: string | null = params.offline
+    ? "Offline mode: chain submission was not attempted."
+    : "Awaiting user wallet approval.";
 
-  if (params.offline) {
-    anchorBlockedReason = "Offline mode: chain submission was not attempted.";
-    attestation = unanchored(params.scanId, input.artifactSha256, commitment, memo, idem, null);
-  } else {
-    const signer = resolveSigner();
-    if (!signer.keypair) {
-      anchorBlockedReason = signer.detail;
-      attestation = unanchored(params.scanId, input.artifactSha256, commitment, memo, idem, signer.detail);
-    } else {
-      const connection = connect();
-      attestation = await anchorCommitment({
-        connection,
-        signer: signer.keypair,
-        memoText: memo,
-        commitmentHash: commitment,
-        scanId: params.scanId,
-        artifactSha256: input.artifactSha256,
-        idempotencyKey: idem,
-      });
-      // 6. Independently verify what we just submitted.
-      if (attestation.transactionSignature) {
-        chainVerification = await verifyOnChain({
-          connection,
-          signature: attestation.transactionSignature,
-          expectedCommitment: commitment,
-          expectedScanId: params.scanId,
-        });
-      }
-      if (!attestation.confirmed) {
-        anchorBlockedReason = attestation.error ?? "Anchoring did not confirm.";
-      }
-    }
-  }
+  attestation = unanchored(
+    params.scanId,
+    input.artifactSha256,
+    commitment,
+    memo,
+    idem,
+    anchorBlockedReason,
+  );
 
   const bundle = buildProofBundle({
     scanId: params.scanId,
