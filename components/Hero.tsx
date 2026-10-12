@@ -178,9 +178,23 @@ export function Hero() {
               above the diagram and pushed the callouts far down the page.
               Once `lg` splits the hero into two columns the artwork is only
               ~660px tall and beside the copy, so the portrait ratio is both
-              safe and the better composition there. */}
-          <div className="relative overflow-hidden">
-            <div className="relative aspect-[5/4] w-full sm:aspect-[4/3] lg:aspect-[363/387]">
+              safe and the better composition there.
+
+              MOBILE BLEED: below `sm` the artwork is pulled out to the
+              viewport edges with `-mx-5`, which cancels `.page-shell`'s
+              20px inline padding exactly. The video is `object-cover`
+              inside an aspect box, so its on-screen size IS its container —
+              it was already 100% of the text column and could not grow any
+              further while that column kept its gutter. Removing the gutter
+              is what makes it visibly bigger on a phone (measured: 280 ->
+              320 at a 320px viewport, +14%). The gutters stay symmetric at
+              zero, so it remains exactly centred, and because the negative
+              margin equals the padding the element ends flush with the
+              viewport — no horizontal scroll. `sm:` restores the gutter, so
+              tablet and desktop are untouched. */}
+          <div className="relative -mx-5 sm:mx-0">
+            <div className="relative overflow-hidden">
+              <div className="relative aspect-[5/4] w-full sm:aspect-[4/3] lg:aspect-[363/387]">
               {motionAllowed ? (
                 <video
                   className="flat-art absolute inset-0 size-full object-cover object-[62%_50%] xl:object-[70%_50%]"
@@ -202,6 +216,7 @@ export function Hero() {
                   className="flat-art absolute inset-0 size-full object-cover object-[62%_50%] xl:object-[70%_50%]"
                 />
               )}
+              </div>
             </div>
           </div>
 

@@ -1,11 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  DiscordGlyph,
-  GithubGlyph,
-  TelegramGlyph,
-  XGlyph,
-} from "@/components/brand/SocialIcons";
+import { SocialLinks } from "@/components/brand/SocialLinks";
 
 /** Compact single-row footer: logo · links · socials · copyright. */
 const LINKS = [
@@ -14,13 +9,6 @@ const LINKS = [
   { label: "Network", href: "/network" },
   { label: "Scanner", href: "/scan" },
   { label: "Console", href: "/app" },
-];
-
-const SOCIALS = [
-  { label: "X", href: "https://x.com/dependencyzero", Icon: XGlyph },
-  { label: "GitHub", href: "https://github.com/dependency-zero", Icon: GithubGlyph },
-  { label: "Discord", href: "https://discord.gg/dependencyzero", Icon: DiscordGlyph },
-  { label: "Telegram", href: "https://t.me/dependencyzero", Icon: TelegramGlyph },
 ];
 
 export function Footer() {
@@ -63,21 +51,7 @@ export function Footer() {
           </nav>
 
           {/* Socials ---------------------------------------------------- */}
-          <ul className="flex items-center gap-4 lg:gap-5">
-            {SOCIALS.map(({ label, href, Icon }) => (
-              <li key={label}>
-                <a
-                  href={href}
-                  aria-label={label}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                  className="inline-flex size-11 items-center justify-center rounded-[6px] border border-line-soft text-ink-soft transition-colors duration-200 hover:border-ink hover:text-ink sm:size-8"
-                >
-                  <Icon aria-hidden="true" className="size-[15px]" />
-                </a>
-              </li>
-            ))}
-          </ul>
+          <SocialLinks />
 
           {/* Copyright ------------------------------------------------- */}
           {/* `whitespace-nowrap` was here and forced a 302px line inside a ~278px
